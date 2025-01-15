@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  octoprint:
+    image: octoprint/octoprint
+    ports:
+      - "5000:5000"
+    volumes:
+      # Mount OctoPrint configuration directory
+      - octoprint_data:/octoprint
+      # Mount our plugin in development mode
+      - .:/plugin
+    environment:
+      - ENABLE_MJPG_STREAMER=false
+      # Install our plugin in development mode
+      - PIP_EXTRA_ARGS=--editable /plugin
+
+volumes:
+  octoprint_data:
+    # Named volume for persistent storage

@@ -1,0 +1,15 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "open-browser",
+            "type": "shell",
+            "command": "sleep 3 && xdg-open http://127.0.0.1:5000",
+            "presentation": {
+                "reveal": "never"
+            },
+            "isBackground": true,
+            "problemMatcher": []
+        }
+    ]
+}
