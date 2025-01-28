@@ -12,8 +12,6 @@ RUN useradd -ms /bin/bash vscode
 USER vscode
 WORKDIR /workspaces/OctoPrint-Additv
 
-# Install OctoPrint
+# Install OctoPrint 1.10.2 and debugpy
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir wheel setuptools octoprint
-
-CMD ["sleep", "infinity"]
+    pip install --no-cache-dir wheel setuptools debugpy 'OctoPrint==1.10.2'

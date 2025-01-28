@@ -1,34 +1,25 @@
 {
     "version": "0.2.0",
-    "compounds": [
-        {
-            "name": "OctoPrint with Browser",
-            "configurations": ["OctoPrint: Debug Plugin"],
-            "preLaunchTask": "open-browser"
-        }
-    ],
     "configurations": [
         {
             "name": "OctoPrint: Debug Plugin",
-            "type": "debugpy",
+            "type": "python",
             "request": "launch",
             "module": "octoprint",
             "args": [
                 "serve",
                 "--port=5000",
-                "--host=127.0.0.1"
+                "--host=0.0.0.0"
             ],
             "justMyCode": false,
             "env": {
                 "PYTHONPATH": "${workspaceFolder}",
-                "OCTOPRINT_HOST": "127.0.0.1",
-                "FLASK_SERVER_NAME": "127.0.0.1:5000",
-                "SERVER_NAME": "127.0.0.1:5000"
+                "OCTOPRINT_HOST": "0.0.0.0"
             },
             "console": "integratedTerminal",
             "serverReadyAction": {
-                "pattern": "Serving Flask app",
-                "uriFormat": "http://127.0.0.1:5000",
+                "pattern": "OctoPrint started up",
+                "uriFormat": "http://localhost:5000",
                 "action": "openExternally"
             }
         }

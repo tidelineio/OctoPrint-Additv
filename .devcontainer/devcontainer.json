@@ -6,10 +6,14 @@
       "extensions": [
         "ms-python.python",
         "ms-python.vscode-pylance",
+        "ms-python.debugpy",
         "saoudrizwan.claude-dev"
       ]
     }
   },
+  "forwardPorts": [5000],
   "postCreateCommand": "pip install -e .",
-  "remoteUser": "vscode"
+  "remoteUser": "vscode",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/OctoPrint-Additv,type=bind",
+  "workspaceFolder": "/workspaces/OctoPrint-Additv"
 }
