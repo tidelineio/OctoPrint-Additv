@@ -45,11 +45,10 @@ server:
     tracking: null
 temperature:
   profiles:
-  - bed: 100
+  - bed: 85
     chamber: null
-    extruder: 210
-    name: ABS
-  - bed: 60
-    chamber: null
-    extruder: 180
-    name: PLA
+    extruder: 230
+    name: PETG
+virtual_printer:
+  _config_version: 1
+  enabled: true
