@@ -1,6 +1,7 @@
 {
   "name": "OctoPrint Development",
   "dockerFile": "Dockerfile",
+  "runArgs": ["--env-file", ".env"],
   "customizations": {
     "vscode": {
       "extensions": [

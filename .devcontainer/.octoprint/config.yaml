@@ -1,5 +1,7 @@
 api:
   key: 2034D0AE039C460AA2BE59A464CA2411
+appearance:
+  name: VSC
 plugins:
   announcements:
     _config_version: 1
@@ -34,6 +36,7 @@ printerProfiles:
   default: _default
 server:
   firstRun: false
+  ignoreIncompleteStartup: true
   onlineCheck:
     enabled: false
   pluginBlacklist:

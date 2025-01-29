@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import octoprint.plugin
 import requests
-import json
+import os
 from supabase import create_client
 
 class AdditivPlugin(octoprint.plugin.StartupPlugin,
@@ -23,7 +23,7 @@ class AdditivPlugin(octoprint.plugin.StartupPlugin,
 
     def get_settings_defaults(self):
         return dict(
-            url="http://192.168.42.102:54321",
+            url="",
             anon_key="",
             registration_token="",
             service_user="",
@@ -58,6 +58,8 @@ class AdditivPlugin(octoprint.plugin.StartupPlugin,
             self._settings.set(["access_key"], response_data["access_token"])
             self._settings.set(["refresh_token"], response_data["refresh_token"])
             self._settings.set(["anon_key"], response_data["anon_key"])
+            self._settings.set(["url"], self.url)
+            self._settings.set(["registration_token"], self.registration_token)
             self._settings.save()
 
             # Update instance variables
@@ -67,7 +69,7 @@ class AdditivPlugin(octoprint.plugin.StartupPlugin,
             self.refresh_token = response_data["refresh_token"]
             self.anon_key = response_data["anon_key"]
 
-            self._logger.warning("Successfully registered printer with Additv")
+            self._logger.info("Successfully registered printer with Additv")
             return True
         except Exception as e:
             self._logger.error(f"Failed to register printer: {str(e)}")
@@ -75,16 +77,17 @@ class AdditivPlugin(octoprint.plugin.StartupPlugin,
       
     def on_after_startup(self):
         try:
-            # Initialize settings
-            self.url = self._settings.get(["url"])
-            self.registration_token = self._settings.get(["registration_token"])
+            # Initialize instance variables from settings
+            self.url = os.environ.get("ADDITV_URL", self._settings.get(["url"]))
+            self.registration_token = os.environ.get("ADDITV_REGISTRATION_TOKEN", self._settings.get(["registration_token"]))
+            self.anon_key = os.environ.get("ADDITV_ANON_KEY", self._settings.get(["anon_key"]))
             self.service_user = self._settings.get(["service_user"])
             self.printer_id = self._settings.get(["printer_id"])
             self.access_key = self._settings.get(["access_key"])
             self.refresh_token = self._settings.get(["refresh_token"])
-            self.anon_key = self._settings.get(["anon_key"])
+            
 
-            if self.service_user is None and self.printer_id is None:
+            if not self.service_user and not self.printer_id:
                 self._logger.warning("Printer not registered. Attempting to register printer to Additv.")
                 self.register_printer()
 
@@ -92,35 +95,11 @@ class AdditivPlugin(octoprint.plugin.StartupPlugin,
                 self.supabase = create_client(self.url, self.anon_key)
                 self.supabase.auth.set_session(self.access_key, self.refresh_token)
                 session = self.supabase.auth.get_session()
-                self._logger.info("Successfully connected to Supabase")
+                self._logger.info("Successfully connected to Additv")
             else:
-                self._logger.warning("Supabase URL or anon key not configured")
+                self._logger.warning("Additv URL or anon key not configured")
         except Exception as e:
-            self._logger.error(f"Failed to connect to Supabase: {str(e)}")
-
-    def get_template_configs(self):
-        return [
-            dict(type="navbar", custom_bindings=False),
-            dict(type="settings", custom_bindings=False)
-        ]
-
-    ##~~ Softwareupdate hook
-    def get_update_information(self):
-        return {
-            "additv": {
-                "displayName": "Additv Plugin",
-                "displayVersion": self._plugin_version,
-
-                # version check: github repository
-                "type": "github_release",
-                "user": "you",
-                "repo": "OctoPrint-Additv",
-                "current": self._plugin_version,
-
-                # update method: pip
-                "pip": "https://github.com/you/OctoPrint-Additv/archive/{target_version}.zip",
-            }
-        }
+            self._logger.error(f"Failed to connect to Additv: {str(e)}")
 
 __plugin_name__ = "Additv Plugin"
 __plugin_pythoncompat__ = ">=3.7,<4" # Python 3.7+ required

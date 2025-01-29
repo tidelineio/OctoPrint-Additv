@@ -53,13 +53,40 @@ The docker-compose configuration:
 
 ## Settings
 
-The plugin has the following configuration settings:
+The plugin has the following configuration settings, which can be set either through the OctoPrint interface or via environment variables:
 
-- `url`: Base URL for the service (default: "https://example.com")
-- `supabase_url`: Supabase instance URL (default: "http://127.0.0.1:54321")
-- `supabase_anon_key`: Supabase anonymous key for initial authentication
-- `registration_token`: Token used for printer registration (default: empty)
-- `service_user`: Service user identifier for the printer to connect to Additv once registered (default: null)
-- `printer_id`: Unique identifier for the printer (default: null)
-- `access_key`: Access token received after successful printer registration (default: null)
-- `refresh_token`: Refresh token received after successful printer registration (default: null)
+### Environment Variables
+
+The following settings can be configured using environment variables with the `additv_` prefix. If an environment variable exists, it will take precedence over the local setting:
+
+- `additv_url`: Base URL for the service
+- `additv_anon_key`: Supabase anonymous key for initial authentication
+- `additv_registration_token`: Token used for printer registration
+
+To configure these environment variables:
+
+1. Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit the `.env` file with your configuration:
+   ```
+   ADDITV_URL=your_service_url
+   ADDITV_ANON_KEY=your_supabase_anon_key
+   ADDITV_REGISTRATION_TOKEN=your_registration_token
+   ```
+
+The DevContainer is configured to automatically load these environment variables when starting up. The `.env` file is excluded from git to keep sensitive information secure.
+
+### Settings
+
+The plugin uses the following settings:
+
+- `url`: Base URL for the service (default: "http://192.168.42.102:54321", can be set via env var)
+- `anon_key`: Supabase anonymous key for initial authentication (default: empty, can be set via env var)
+- `registration_token`: Token used for printer registration (default: empty, can be set via env var)
+- `service_user`: Service user identifier for the printer (set automatically during registration)
+- `printer_id`: Unique identifier for the printer (set automatically during registration)
+- `access_key`: Access token (set automatically during registration)
+- `refresh_token`: Refresh token (set automatically during registration)
