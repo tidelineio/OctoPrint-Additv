@@ -40,6 +40,11 @@ class AdditivPlugin(octoprint.plugin.StartupPlugin,
                 self._logger.error("Printer name not configured. Please set a printer name in OctoPrint settings.")
                 return False
 
+            # Validate required parameters
+            if not self.url or not self.registration_token:
+                self._logger.error("URL and registration token are required for printer registration")
+                return False
+
             # Prepare request
             url = f"{self.url}/functions/v1/register-printer"
             headers = {"Content-Type": "application/json"}
