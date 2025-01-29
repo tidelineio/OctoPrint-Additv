@@ -16,7 +16,4 @@ WORKDIR /workspaces/OctoPrint-Additv
 
 # Install OctoPrint and development dependencies first for better layer caching
 RUN pip install --upgrade pip && \
-    pip install wheel setuptools debugpy 'OctoPrint>=1.9.0' 'OctoPrint==1.10.2'
-
-# Copy OctoPrint config after installing dependencies
-COPY --chown=vscode:vscode .octoprint /home/vscode/.octoprint
+    pip install wheel setuptools debugpy supabase 'OctoPrint==1.10.2'

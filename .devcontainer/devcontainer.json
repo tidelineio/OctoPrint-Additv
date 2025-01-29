@@ -16,5 +16,8 @@
   "postCreateCommand": "pip install -e .",
   "remoteUser": "vscode",
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/OctoPrint-Additv,type=bind",
-  "workspaceFolder": "/workspaces/OctoPrint-Additv"
+  "workspaceFolder": "/workspaces/OctoPrint-Additv",
+  "mounts": [
+    "source=${localWorkspaceFolder}/.devcontainer/.octoprint,target=/home/vscode/.octoprint,type=bind"
+  ]
 }

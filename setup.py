@@ -10,7 +10,7 @@ setup(
     license="AGPLv3",
     packages=["octoprint_additv"],
     python_requires=">=3.7,<4",
-    install_requires=["OctoPrint>=1.9.0"],
+    install_requires=["OctoPrint>=1.9.0", "supabase"],
     entry_points={
         "octoprint.plugin": [
             "additv = octoprint_additv:AdditivPlugin"

@@ -34,3 +34,4 @@ ENV/
 # OS
 .DS_Store
 Thumbs.db
+/.devcontainer/.octoprint

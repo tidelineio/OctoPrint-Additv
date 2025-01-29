@@ -50,3 +50,16 @@ The docker-compose configuration:
 ├── .vscode/               # VSCode configuration
 ├── octoprint_additv/      # Plugin source code
 └── setup.py              # Plugin setup configuration
+
+## Settings
+
+The plugin has the following configuration settings:
+
+- `url`: Base URL for the service (default: "https://example.com")
+- `supabase_url`: Supabase instance URL (default: "http://127.0.0.1:54321")
+- `supabase_anon_key`: Supabase anonymous key for initial authentication
+- `registration_token`: Token used for printer registration (default: empty)
+- `service_user`: Service user identifier for the printer to connect to Additv once registered (default: null)
+- `printer_id`: Unique identifier for the printer (default: null)
+- `access_key`: Access token received after successful printer registration (default: null)
+- `refresh_token`: Refresh token received after successful printer registration (default: null)
