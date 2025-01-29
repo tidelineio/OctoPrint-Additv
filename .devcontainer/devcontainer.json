@@ -7,7 +7,8 @@
         "ms-python.python",
         "ms-python.vscode-pylance",
         "ms-python.debugpy",
-        "saoudrizwan.claude-dev"
+        "saoudrizwan.claude-dev",
+        "ms-azuretools.vscode-docker"
       ]
     }
   },

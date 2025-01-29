@@ -29,6 +29,7 @@ plugins:
     unique_id: ba5fdc1f-ad12-4377-8ae4-ccbe0d9c5e94
   virtual_printer:
     _config_version: 1
+    enabled: true
 printerProfiles:
   default: _default
 server:
@@ -49,6 +50,3 @@ temperature:
     chamber: null
     extruder: 230
     name: PETG
-virtual_printer:
-  _config_version: 1
-  enabled: true
