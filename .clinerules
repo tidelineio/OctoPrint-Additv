@@ -1,0 +1,2 @@
+1. This is an Octoprint plugin project
+2. When adding any settings to our plugin, please add defaults to ./devcontainer/.octoprint/config.yaml and also a definition of them in our README.md file
