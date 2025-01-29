@@ -83,9 +83,9 @@ The DevContainer is configured to automatically load these environment variables
 
 The plugin uses the following settings:
 
-- `url`: Base URL for the service (default: "http://192.168.42.102:54321", can be set via env var)
-- `anon_key`: Supabase anonymous key for initial authentication (default: empty, can be set via env var)
-- `registration_token`: Token used for printer registration (default: empty, can be set via env var)
+- `url`: Base URL for the service (default: "", can be provided via $ADDITV_URL)
+- `anon_key`: Supabase anonymous key for initial authentication (default: empty, can be provided via $ADDITV_ANON_KEY)
+- `registration_token`: Token used for printer registration (default: empty, can be provided via $ADDITV_REGISTRATION_TOKEN)
 - `service_user`: Service user identifier for the printer (set automatically during registration)
 - `printer_id`: Unique identifier for the printer (set automatically during registration)
 - `access_key`: Access token (set automatically during registration)
