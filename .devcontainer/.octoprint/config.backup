@@ -1,8 +1,29 @@
 api:
   key: 2034D0AE039C460AA2BE59A464CA2411
+appearance:
+  name: VSC
 plugins:
+  additv:
+    access_key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwOi8vMTI3LjAuMC4xOjU0MzIxL2F1dGgvdjEiLCJzdWIiOiJjYjlhYjQ2Zi00MjE5LTRmNzEtOGQ4ZC1mNTU1MTg0MzIxNzciLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzM4MTc3NzUwLCJpYXQiOjE3MzgxNzQxNTAsImVtYWlsIjoiMjBAYWRkaXR2LnByaW50ZXJzIiwicGhvbmUiOiIiLCJhcHBfbWV0YWRhdGEiOnsicHJpbnRlcl9pZCI6MjAsInByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXSwicm9sZSI6InByaW50ZXIifSwidXNlcl9tZXRhZGF0YSI6eyJlbWFpbF92ZXJpZmllZCI6dHJ1ZX0sInJvbGUiOiJhdXRoZW50aWNhdGVkIiwiYWFsIjoiYWFsMSIsImFtciI6W3sibWV0aG9kIjoicGFzc3dvcmQiLCJ0aW1lc3RhbXAiOjE3MzgxNzQxNTB9XSwic2Vzc2lvbl9pZCI6ImFlMTk2MDVhLWM5YjMtNDcxYS1hMTk5LWVkYmY5OWZkODgwOSIsImlzX2Fub255bW91cyI6ZmFsc2V9.qU6DGmYov8CAonV7_qNmXr9rD47Y24WkDOVhuU-Z_jw
+    anon_key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+    printer_id: 20
+    refresh_token: RN1WxKB0gZb8LN0wJD5KKw
+    registration_token: 16d9ed179b676cf50b17956cada80e0c1b215723489a406c2ebff43297bc00d9
+    service_user: cb9ab46f-4219-4f71-8d8d-f55518432177
+    url: http://192.168.42.102:54321
   announcements:
     _config_version: 1
+    channels:
+      _blog:
+        read_until: 1734507000
+      _important:
+        read_until: 1698310200
+      _octopi:
+        read_until: 1684929600
+      _plugins:
+        read_until: 1738022400
+      _releases:
+        read_until: 1738073700
   classicwebcam:
     _config_version: 1
   discovery:
@@ -14,10 +35,29 @@ plugins:
   softwareupdate:
     _config_version: 9
   tracking:
+    enabled: false
     unique_id: ba5fdc1f-ad12-4377-8ae4-ccbe0d9c5e94
   virtual_printer:
     _config_version: 1
+    enabled: true
 printerProfiles:
   default: _default
 server:
+  firstRun: false
+  ignoreIncompleteStartup: true
+  onlineCheck:
+    enabled: false
+  pluginBlacklist:
+    enabled: false
   secretKey: nmYkJseBJwLVZSvOhsUpnObn3tvp8ybT
+  seenWizards:
+    backup: null
+    classicwebcam: 1
+    corewizard: 4
+    tracking: null
+temperature:
+  profiles:
+  - bed: 85
+    chamber: null
+    extruder: 230
+    name: PETG
