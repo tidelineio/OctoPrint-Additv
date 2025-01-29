@@ -31,9 +31,6 @@ ENV/
 !.vscode/tasks.json
 !.vscode/settings.json
 
-# OctoPrint
-.octoprint/
-
 # OS
 .DS_Store
 Thumbs.db

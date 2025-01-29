@@ -9,6 +9,12 @@ RUN apt-get update && apt-get install -y \
 
 # Create non-root user
 RUN useradd -ms /bin/bash vscode
+
+# Set up OctoPrint config
+COPY .octoprint /home/vscode/.octoprint
+RUN chown -R vscode:vscode /home/vscode/.octoprint
+
+# Switch to non-root user
 USER vscode
 WORKDIR /workspaces/OctoPrint-Additv
 
