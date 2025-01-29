@@ -53,7 +53,7 @@ The docker-compose configuration:
 
 ## Settings
 
-The plugin has the following configuration settings, which can be set either through the OctoPrint interface or via environment variables:
+The plugin stores its settings in `additv.yaml` within the plugin's data folder. These settings can be configured through environment variables:
 
 ### Environment Variables
 
@@ -79,7 +79,7 @@ The DevContainer is configured to automatically load these environment variables
 
 ### Settings
 
-The plugin uses the following settings:
+The plugin stores the following settings in `additv.yaml`:
 
 - `url`: Base URL for the service (default: "", can be provided via $ADDITV_URL)
 - `registration_token`: Token used for printer registration (default: empty, can be provided via $ADDITV_REGISTRATION_TOKEN)
@@ -88,4 +88,3 @@ The plugin uses the following settings:
 - `printer_id`: Unique identifier for the printer (set automatically during registration)
 - `access_key`: Access token (set automatically during registration)
 - `refresh_token`: Refresh token (set automatically during registration)
-
