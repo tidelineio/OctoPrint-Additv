@@ -1,8 +1,15 @@
 from setuptools import setup
+import os
+
+# Get version from version.py
+version_file = os.path.join(os.path.dirname(__file__), "octoprint_additv", "version.py")
+about = {}
+with open(version_file, "r") as f:
+    exec(f.read(), about)
 
 setup(
     name="OctoPrint-Additv",
-    version="0.1.0",
+    version=about["__version__"],
     description="Additv OctoPrint Plugin",
     author="Josh",
     author_email="josh@example.com",

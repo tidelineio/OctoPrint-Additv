@@ -26,6 +26,15 @@ jobs:
           default_bump: minor
           release_branches: main
 
+      - name: Update version.py
+        run: |
+          echo "__version__ = \"${{ steps.tag_version.outputs.new_version }}\"" > octoprint_additv/version.py
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add octoprint_additv/version.py
+          git commit -m "chore: update version to ${{ steps.tag_version.outputs.new_version }}"
+          git push
+
       - name: Create Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
