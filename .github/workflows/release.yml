@@ -26,14 +26,23 @@ jobs:
           default_bump: minor
           release_branches: main
 
-      - name: Update version.py
+      - name: Prepare Release
         run: |
-          echo "__version__ = \"${{ steps.tag_version.outputs.new_version }}\"" > octoprint_additv/version.py
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add octoprint_additv/version.py
-          git commit -m "chore: update version to ${{ steps.tag_version.outputs.new_version }}"
-          git push
+          # Create temp directory for release
+          mkdir -p release_tmp
+          
+          # Copy all source files
+          cp -r octoprint_additv release_tmp/
+          cp setup.py release_tmp/
+          cp README.md release_tmp/
+          
+          # Update version in the release copy
+          echo "__version__ = \"${{ steps.tag_version.outputs.new_version }}\"" > release_tmp/octoprint_additv/version.py
+          
+          # Create zip archive with version number
+          cd release_tmp
+          zip -r "../OctoPrint-Additv-${{ steps.tag_version.outputs.new_version }}.zip" ./*
+          cd ..
 
       - name: Create Release
         env:
@@ -42,4 +51,4 @@ jobs:
           gh release create ${{ steps.tag_version.outputs.new_tag }} \
             --title "Release ${{ steps.tag_version.outputs.new_tag }}" \
             --notes "${{ steps.tag_version.outputs.changelog }}" \
-            --target ${{ github.event.pull_request.merge_commit_sha }}
+            "OctoPrint-Additv-${{ steps.tag_version.outputs.new_version }}.zip"
