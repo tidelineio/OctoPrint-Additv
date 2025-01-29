@@ -90,3 +90,4 @@ The plugin uses the following settings:
 - `printer_id`: Unique identifier for the printer (set automatically during registration)
 - `access_key`: Access token (set automatically during registration)
 - `refresh_token`: Refresh token (set automatically during registration)
+
