@@ -80,7 +80,7 @@ class AdditivPlugin(octoprint.plugin.StartupPlugin,
             # Initialize instance variables from settings
             self.url = os.environ.get("ADDITV_URL", self._settings.get(["url"]))
             self.registration_token = os.environ.get("ADDITV_REGISTRATION_TOKEN", self._settings.get(["registration_token"]))
-            self.anon_key = os.environ.get("ADDITV_ANON_KEY", self._settings.get(["anon_key"]))
+            self.anon_key = self._settings.get(["anon_key"])
             self.service_user = self._settings.get(["service_user"])
             self.printer_id = self._settings.get(["printer_id"])
             self.access_key = self._settings.get(["access_key"])
@@ -91,7 +91,7 @@ class AdditivPlugin(octoprint.plugin.StartupPlugin,
                 self._logger.warning("Printer not registered. Attempting to register printer to Additv.")
                 self.register_printer()
 
-            if self.url and self.access_key:
+            if self.url and self.access_key and self.anon_key:
                 self.supabase = create_client(self.url, self.anon_key)
                 self.supabase.auth.set_session(self.access_key, self.refresh_token)
                 session = self.supabase.auth.get_session()

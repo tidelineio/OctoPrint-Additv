@@ -60,7 +60,6 @@ The plugin has the following configuration settings, which can be set either thr
 The following settings can be configured using environment variables with the `additv_` prefix. If an environment variable exists, it will take precedence over the local setting:
 
 - `additv_url`: Base URL for the service
-- `additv_anon_key`: Supabase anonymous key for initial authentication
 - `additv_registration_token`: Token used for printer registration
 
 To configure these environment variables:
@@ -73,7 +72,6 @@ To configure these environment variables:
 2. Edit the `.env` file with your configuration:
    ```
    ADDITV_URL=your_service_url
-   ADDITV_ANON_KEY=your_supabase_anon_key
    ADDITV_REGISTRATION_TOKEN=your_registration_token
    ```
 
@@ -84,8 +82,8 @@ The DevContainer is configured to automatically load these environment variables
 The plugin uses the following settings:
 
 - `url`: Base URL for the service (default: "", can be provided via $ADDITV_URL)
-- `anon_key`: Supabase anonymous key for initial authentication (default: empty, can be provided via $ADDITV_ANON_KEY)
 - `registration_token`: Token used for printer registration (default: empty, can be provided via $ADDITV_REGISTRATION_TOKEN)
+- `anon_key`: Supabase anonymous key - probably unnecessary but generally used for un-authenticated Supabase calls
 - `service_user`: Service user identifier for the printer (set automatically during registration)
 - `printer_id`: Unique identifier for the printer (set automatically during registration)
 - `access_key`: Access token (set automatically during registration)
