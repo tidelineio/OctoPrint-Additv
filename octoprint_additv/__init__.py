@@ -4,6 +4,8 @@ from __future__ import annotations
 import octoprint.plugin
 import requests
 import os
+import yaml
+from pathlib import Path
 from supabase import create_client
 
 class AdditivPlugin(octoprint.plugin.StartupPlugin,
@@ -20,6 +22,42 @@ class AdditivPlugin(octoprint.plugin.StartupPlugin,
         self.access_key = None
         self.refresh_token = None
         self.supabase = None
+        self._settings_file = None
+
+    def initialize(self):
+        self._settings_file = Path(self.get_plugin_data_folder()) / "additv.yaml"
+        self._load_settings()
+
+    def _load_settings(self):
+        """Load settings from additv.yaml file"""
+        if self._settings_file.exists():
+            try:
+                with open(self._settings_file, 'r') as f:
+                    settings = yaml.safe_load(f)
+                    if settings:
+                        for key, value in settings.items():
+                            if hasattr(self, key):
+                                setattr(self, key, value)
+            except Exception as e:
+                self._logger.error(f"Failed to load settings: {str(e)}")
+
+    def _save_settings(self):
+        """Save settings to additv.yaml file"""
+        try:
+            settings = {
+                'url': self.url,
+                'anon_key': self.anon_key,
+                'registration_token': self.registration_token,
+                'service_user': self.service_user,
+                'printer_id': self.printer_id,
+                'access_key': self.access_key,
+                'refresh_token': self.refresh_token
+            }
+            
+            with open(self._settings_file, 'w') as f:
+                yaml.safe_dump(settings, f)
+        except Exception as e:
+            self._logger.error(f"Failed to save settings: {str(e)}")
 
     def get_settings_defaults(self):
         return dict(
@@ -52,23 +90,16 @@ class AdditivPlugin(octoprint.plugin.StartupPlugin,
             response = requests.post(url, headers=headers, json=data)
             response_data = response.json()
 
-            # Store response data in settings
-            self._settings.set(["printer_id"], response_data["printer_id"])
-            self._settings.set(["service_user"], response_data["service_user"])
-            self._settings.set(["access_key"], response_data["access_token"])
-            self._settings.set(["refresh_token"], response_data["refresh_token"])
-            self._settings.set(["anon_key"], response_data["anon_key"])
-            self._settings.set(["url"], self.url)
-            self._settings.set(["registration_token"], self.registration_token)
-            self._settings.save()
-
-            # Update instance variables
+            # Update instance variables and save to file
             self.printer_id = str(response_data["printer_id"])
             self.service_user = response_data["service_user"]
             self.access_key = response_data["access_token"]
             self.refresh_token = response_data["refresh_token"]
             self.anon_key = response_data["anon_key"]
 
+            # Save settings to file
+            self._save_settings()
+            
             self._logger.info("Successfully registered printer with Additv")
             return True
         except Exception as e:
@@ -77,15 +108,12 @@ class AdditivPlugin(octoprint.plugin.StartupPlugin,
       
     def on_after_startup(self):
         try:
-            # Initialize instance variables from settings
-            self.url = os.environ.get("ADDITV_URL", self._settings.get(["url"]))
-            self.registration_token = os.environ.get("ADDITV_REGISTRATION_TOKEN", self._settings.get(["registration_token"]))
-            self.anon_key = self._settings.get(["anon_key"])
-            self.service_user = self._settings.get(["service_user"])
-            self.printer_id = self._settings.get(["printer_id"])
-            self.access_key = self._settings.get(["access_key"])
-            self.refresh_token = self._settings.get(["refresh_token"])
+            # Initialize the settings file and load settings
+            self.initialize()
             
+            # Override with environment variables if present
+            self.url = os.environ.get("ADDITV_URL", self.url or "")
+            self.registration_token = os.environ.get("ADDITV_REGISTRATION_TOKEN", self.registration_token or "")
 
             if not self.service_user and not self.printer_id:
                 self._logger.warning("Printer not registered. Attempting to register printer to Additv.")
