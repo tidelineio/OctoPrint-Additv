@@ -1,0 +1,50 @@
+name: Create Release on PR Merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+jobs:
+  create_release:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get latest release
+        id: get_latest_release
+        run: |
+          latest_tag=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/latest" | \
+            jq -r '.tag_name' || echo "0.9")
+          if [ "$latest_tag" = "null" ]; then
+            latest_tag="0.9"
+          fi
+          echo "LATEST_TAG=$latest_tag" >> $GITHUB_ENV
+
+      - name: Generate new version
+        id: generate_version
+        run: |
+          current_version=${{ env.LATEST_TAG }}
+          IFS='.' read -ra version_parts <<< "$current_version"
+          major=${version_parts[0]:-0}
+          minor=${version_parts[1]:-9}
+          minor=$((minor + 1))
+          new_version="$major.$minor"
+          echo "NEW_VERSION=$new_version" >> $GITHUB_ENV
+
+      - name: Create Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create ${{ env.NEW_VERSION }} \
+            --title "Release ${{ env.NEW_VERSION }}" \
+            --notes "Release ${{ env.NEW_VERSION }} - Automated release from PR merge" \
+            --target ${{ github.event.pull_request.merge_commit_sha }}
