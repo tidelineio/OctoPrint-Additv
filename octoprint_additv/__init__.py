@@ -6,8 +6,8 @@ import requests
 import os
 import yaml
 from pathlib import Path
-from supabase import create_client
 from .event_handler import EventHandler
+from .additv_client import AdditvClient
 
 
 class AdditivPlugin(
@@ -24,7 +24,6 @@ class AdditivPlugin(
         self.printer_id = None
         self.access_key = None
         self.refresh_token = None
-        self.supabase = None
         self._settings_file = None
         self.event_handler = None
 
@@ -120,9 +119,16 @@ class AdditivPlugin(
                 self.register_printer()
 
             if self.url and self.access_key:
-                self.supabase = create_client(self.url, self.access_key)
-                self.supabase.auth.refresh_session(self.refresh_token)
-                self.event_handler = EventHandler(self.supabase, self._logger)
+                # Create our Additv client which handles its own connection
+                self.additv_client = AdditvClient(
+                    url=self.url,
+                    access_key=self.access_key,
+                    refresh_token=self.refresh_token,
+                    logger=self._logger
+                )
+                
+                # Pass the client to event handler
+                self.event_handler = EventHandler(self.additv_client, self._logger)
                 self._logger.info("Successfully connected to Additv")
             else:
                 self._logger.warning("Additv URL or access key not configured")

@@ -9,8 +9,8 @@ PRINTER_EVENT_JOB_PAUSED = "Job_Paused"
 
 
 class EventHandler:
-    def __init__(self, supabase_client, logger=None):
-        self._supabase = supabase_client
+    def __init__(self, additv_client, logger=None):
+        self._additv = additv_client
         self._logger = logger or logging.getLogger(__name__)
 
     def map_event(self, event: str, payload: Dict[str, Any]) -> Optional[str]:
@@ -46,11 +46,11 @@ class EventHandler:
     def insert_event(self, event_type: str, data: Dict[str, Any]) -> None:
         """Insert an event into the printer_events table"""
         try:
-            if not self._supabase:
-                self._logger.error("No valid Supabase connection")
+            if not self._additv:
+                self._logger.error("No valid Additv connection")
                 return
             
-            self._supabase.table("printer_events").insert({"event": event_type}).execute()
+            self._additv.insert("printer_events", {"event": event_type})
 
         except Exception as e:
             self._logger.error(f"Error inserting event {event_type}: {str(e)}")
