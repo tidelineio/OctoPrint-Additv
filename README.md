@@ -83,7 +83,6 @@ The plugin stores the following settings in `additv.yaml`:
 
 - `url`: Base URL for the service (default: "", can be provided via $ADDITV_URL)
 - `registration_token`: Token used for printer registration (default: empty, can be provided via $ADDITV_REGISTRATION_TOKEN)
-- `anon_key`: Supabase anonymous key - probably unnecessary but generally used for un-authenticated Supabase calls
 - `service_user`: Service user identifier for the printer (set automatically during registration)
 - `printer_id`: Unique identifier for the printer (set automatically during registration)
 - `access_key`: Access token (set automatically during registration)

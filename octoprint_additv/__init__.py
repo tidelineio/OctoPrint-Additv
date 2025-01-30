@@ -6,23 +6,26 @@ import requests
 import os
 import yaml
 from pathlib import Path
-from supabase import create_client
+from .event_handler import EventHandler
+from .additv_client import AdditvClient
 
-class AdditivPlugin(octoprint.plugin.StartupPlugin,
-                   octoprint.plugin.TemplatePlugin,
-                   octoprint.plugin.SettingsPlugin):
-    
+
+class AdditivPlugin(
+    octoprint.plugin.StartupPlugin,
+    octoprint.plugin.TemplatePlugin,
+    octoprint.plugin.SettingsPlugin,
+    octoprint.plugin.EventHandlerPlugin,
+):    
     def __init__(self):
         super().__init__()
         self.url = None
-        self.anon_key = None
         self.registration_token = None
         self.service_user = None
         self.printer_id = None
         self.access_key = None
         self.refresh_token = None
-        self.supabase = None
         self._settings_file = None
+        self.event_handler = None
 
     def initialize(self):
         self._settings_file = Path(self.get_plugin_data_folder()) / "additv.yaml"
@@ -46,7 +49,6 @@ class AdditivPlugin(octoprint.plugin.StartupPlugin,
         try:
             settings = {
                 'url': self.url,
-                'anon_key': self.anon_key,
                 'registration_token': self.registration_token,
                 'service_user': self.service_user,
                 'printer_id': self.printer_id,
@@ -62,7 +64,6 @@ class AdditivPlugin(octoprint.plugin.StartupPlugin,
     def get_settings_defaults(self):
         return dict(
             url="",
-            anon_key="",
             registration_token="",
             service_user="",
             printer_id="",
@@ -95,8 +96,6 @@ class AdditivPlugin(octoprint.plugin.StartupPlugin,
             self.service_user = response_data["service_user"]
             self.access_key = response_data["access_token"]
             self.refresh_token = response_data["refresh_token"]
-            self.anon_key = response_data["anon_key"]
-
             # Save settings to file
             self._save_settings()
             
@@ -119,15 +118,29 @@ class AdditivPlugin(octoprint.plugin.StartupPlugin,
                 self._logger.warning("Printer not registered. Attempting to register printer to Additv.")
                 self.register_printer()
 
-            if self.url and self.access_key and self.anon_key:
-                self.supabase = create_client(self.url, self.anon_key)
-                self.supabase.auth.set_session(self.access_key, self.refresh_token)
-                session = self.supabase.auth.get_session()
+            if self.url and self.access_key:
+                # Create our Additv client which handles its own connection
+                self.additv_client = AdditvClient(
+                    url=self.url,
+                    access_key=self.access_key,
+                    refresh_token=self.refresh_token,
+                    logger=self._logger
+                )
+                
+                # Pass the client to event handler
+                self.event_handler = EventHandler(self.additv_client, self._logger)
                 self._logger.info("Successfully connected to Additv")
             else:
-                self._logger.warning("Additv URL or anon key not configured")
+                self._logger.warning("Additv URL or access key not configured")
         except Exception as e:
             self._logger.error(f"Failed to connect to Additv: {str(e)}")
+
+    def on_event(self, event, payload):
+        """Handle OctoPrint events by passing them to our event handler"""
+        if event == "ZChange":
+            return None
+        if self.event_handler:
+            self.event_handler.handle_event(event, payload)
 
 __plugin_name__ = "Additv Plugin"
 __plugin_pythoncompat__ = ">=3.7,<4" # Python 3.7+ required
