@@ -7,11 +7,15 @@ import os
 import yaml
 from pathlib import Path
 from supabase import create_client
+from .event_handler import EventHandler
 
-class AdditivPlugin(octoprint.plugin.StartupPlugin,
-                   octoprint.plugin.TemplatePlugin,
-                   octoprint.plugin.SettingsPlugin):
-    
+
+class AdditivPlugin(
+    octoprint.plugin.StartupPlugin,
+    octoprint.plugin.TemplatePlugin,
+    octoprint.plugin.SettingsPlugin,
+    octoprint.plugin.EventHandlerPlugin,
+):    
     def __init__(self):
         super().__init__()
         self.url = None
