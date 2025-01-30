@@ -2,10 +2,10 @@ import logging
 from typing import Optional, Dict, Any
 
 # Printer event type constants matching database enum values
-PRINTER_EVENT_PRINTSTARTED = "Job_Started"
-PRINTER_EVENT_PRINTDONE = "Job_Complete"
-PRINTER_EVENT_PRINTFAILED = "Job_Failed"
-PRINTER_EVENT_PRINTPAUSED = "Job_Paused"
+PRINTER_EVENT_JOB_STARTED = "Job_Started"
+PRINTER_EVENT_JOB_COMPLETE = "Job_Complete"
+PRINTER_EVENT_JOB_FAILED = "Job_Failed"
+PRINTER_EVENT_JOB_PAUSED = "Job_Paused"
 
 
 class EventHandler:
@@ -13,35 +13,20 @@ class EventHandler:
         self._supabase = supabase_client
         self._logger = logger or logging.getLogger(__name__)
 
-    def _get_db(self):
-        """Get the database client, ensuring we have a valid session"""
-        try:
-            session = self._supabase.auth.get_session()
-            if not session:
-                self._logger.error("No valid Supabase session")
-                return None
-            return self._supabase
-        except Exception as e:
-            self._logger.error(f"Error getting Supabase session: {str(e)}")
-            return None
-
     def map_event(self, event: str, payload: Dict[str, Any]) -> Optional[str]:
         """Map OctoPrint events to printer_event_type enum values"""
-        if event == "ZChange":
-            return None
-
         match event:
             case "PrintStarted":
-                return PRINTER_EVENT_PRINTSTARTED
+                return PRINTER_EVENT_JOB_STARTED
 
             case "PrintDone":
-                return PRINTER_EVENT_PRINTDONE
+                return PRINTER_EVENT_JOB_COMPLETE
 
             case "PrintFailed" | "PrintCancelled":
-                return PRINTER_EVENT_PRINTFAILED
+                return PRINTER_EVENT_JOB_FAILED
 
             case "PrintPaused":
-                return PRINTER_EVENT_PRINTPAUSED
+                return PRINTER_EVENT_JOB_PAUSED
 
             case _:
                 return None
@@ -61,13 +46,11 @@ class EventHandler:
     def insert_event(self, event_type: str, data: Dict[str, Any]) -> None:
         """Insert an event into the printer_events table"""
         try:
-            # printer_id is automatically set by the database trigger
-            db = self._get_db()
-            if not db:
-                self._logger.error("Failed to get valid database connection")
+            if not self._supabase:
+                self._logger.error("No valid Supabase connection")
                 return
             
-            db.table("printer_events").insert({"event": event_type}).execute()
+            self._supabase.table("printer_events").insert({"event": event_type}).execute()
 
         except Exception as e:
             self._logger.error(f"Error inserting event {event_type}: {str(e)}")
