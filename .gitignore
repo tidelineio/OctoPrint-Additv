@@ -24,6 +24,8 @@ wheels/
 venv/
 ENV/
 .env
+.env.local
+.env.prod
 
 # IDE
 .idea/
@@ -36,5 +38,4 @@ ENV/
 .DS_Store
 Thumbs.db
 /.devcontainer/.octoprint
-.env.local
-.env.prod
+
