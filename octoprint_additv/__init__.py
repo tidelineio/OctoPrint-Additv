@@ -133,6 +133,11 @@ class AdditivPlugin(
         except Exception as e:
             self._logger.error(f"Failed to connect to Additv: {str(e)}")
 
+    def on_event(self, event, payload):
+        """Handle OctoPrint events by passing them to our event handler"""
+        if self.event_handler:
+            self.event_handler.handle_event(event, payload)
+
 __plugin_name__ = "Additv Plugin"
 __plugin_pythoncompat__ = ">=3.7,<4" # Python 3.7+ required
 __plugin_implementation__ = AdditivPlugin()
