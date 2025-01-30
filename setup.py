@@ -15,12 +15,12 @@ setup(
     name="OctoPrint-Additv",
     version=version,
     description="Additv OctoPrint Plugin",
-    author="Josh",
+    author="Josh Wright",
     author_email="josh@example.com",
-    url="https://github.com/you/OctoPrint-Additv",
+    url="https://github.com/tidelineio/OctoPrint-Additv",
     license="AGPLv3",
     packages=["octoprint_additv"],
-    python_requires=">=3.7,<4",
+    python_requires=">=3.11,<4",
     install_requires=["OctoPrint>=1.9.0", "supabase"],
     entry_points={
         "octoprint.plugin": [
