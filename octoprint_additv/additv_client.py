@@ -21,6 +21,7 @@ class ConnectionSettings:
     printer_id: Optional[str] = None
     access_key: Optional[str] = None
     refresh_token: Optional[str] = None
+    anon_key: Optional[str] = None
 
 class SettingsManager:
     """Handles persistence and management of Additv connection settings."""
@@ -59,7 +60,8 @@ class SettingsManager:
                 'service_user': self._settings.service_user,
                 'printer_id': self._settings.printer_id,
                 'access_key': self._settings.access_key,
-                'refresh_token': self._settings.refresh_token
+                'refresh_token': self._settings.refresh_token,
+                'anon_key': self._settings.anon_key
             }
             with open(self._settings_file, 'w') as f:
                 yaml.safe_dump(settings_dict, f)
@@ -101,7 +103,8 @@ class SettingsManager:
                 printer_id=str(response_data["printer_id"]),
                 service_user=response_data["service_user"],
                 access_key=response_data["access_token"],
-                refresh_token=response_data["refresh_token"]
+                refresh_token=response_data["refresh_token"],
+                anon_key=response_data["anon_key"]
             )
             
             return True
@@ -194,29 +197,15 @@ class AdditvClient:
     def _connect(self):
         """Establish connection to Additv backend"""
         try:
-            # First attempt with current access key
-            self._client = create_client(self.settings.url, self.settings.access_key)
+            self._client = create_client(self.settings.url, self.settings.anon_key)
+            self._client.auth.set_session(access_token=self.settings.access_key, refresh_token=self.settings.refresh_token)
+            currentUser = self._client.auth.get_user()
+            if currentUser.user.id != self.settings.service_user:
+                raise Exception(f"_User ID mismatch. Expected: {self.settings.service_user}, Got: {currentUser.user.id}")
             self._logger.info("_connect: Successfully established connection to Additv backend")
             return
         except Exception as initial_error:
             self._logger.warning(f"_connect: Initial connection failed - Error: {str(initial_error)}")
-            
-            # Try to refresh the session
-            if self.settings.refresh_token and self.refresh_session():
-                try:
-                    # Retry with new access key
-                    self._client = create_client(self.settings.url, self.settings.access_key)
-                    self._logger.info("_connect: Successfully established connection after token refresh")
-                    return
-                except Exception as retry_error:
-                    error_msg = f"_connect: Connection failed after token refresh - Error: {str(retry_error)}"
-                    self._logger.error(error_msg)
-                    raise type(retry_error)(error_msg) from retry_error
-            
-            # If we get here, either we had no refresh token or refresh failed
-            error_msg = f"_connect: Failed to establish connection - Error: {str(initial_error)}"
-            self._logger.error(error_msg)
-            raise type(initial_error)(error_msg) from initial_error
 
     def _execute_with_retry(self, operation, operation_name, *args, **kwargs):
         """Execute operation with retries"""

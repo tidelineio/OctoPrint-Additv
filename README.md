@@ -87,3 +87,4 @@ The plugin stores the following settings in `additv.yaml`:
 - `printer_id`: Unique identifier for the printer (set automatically during registration)
 - `access_key`: Access token (set automatically during registration)
 - `refresh_token`: Refresh token (set automatically during registration)
+- `anon_key`: Anonymous key for public access (set automatically during registration)
