@@ -172,40 +172,39 @@ class AdditvClient:
         """Get the current connection settings."""
         return self._settings_manager.settings
 
-    def refresh_session(self):
-        """Refresh the access token using the refresh token"""
-        try:
-            if not self.settings.refresh_token:
-                raise Exception("No refresh token available")
-            
-            temp_client = create_client(self.settings.url, self.settings.access_key)
-            response = temp_client.auth.refresh_session(self.settings.refresh_token)
-            
-            if not response or not response.session:
-                raise Exception("Failed to refresh session")
-            
-            new_access_key = response.session.access_token
-            self._settings_manager.update_access_key(new_access_key)
-            if self._on_token_refresh:
-                self._on_token_refresh(new_access_key)
-            return True
-        except Exception as e:
-            error_msg = f"refresh_session: Failed to refresh session - Error: {str(e)}, Type: {type(e).__name__}"
-            self._logger.error(error_msg)
-            return False
-
     def _connect(self):
         """Establish connection to Additv backend"""
         try:
             self._client = create_client(self.settings.url, self.settings.anon_key)
-            self._client.auth.set_session(access_token=self.settings.access_key, refresh_token=self.settings.refresh_token)
+            
+            # Set up auth state change listener specifically for token refresh
+            def handle_auth_change(event, session):
+                if event == 'TOKEN_REFRESHED' and session:
+                    # Update and persist both tokens
+                    self._settings_manager.update_settings(
+                        access_key=session.access_token,
+                        refresh_token=session.refresh_token
+                    )
+                    self._logger.info("Saved updated tokens from Supabase refresh")
+                    # Call the token refresh callback if configured
+                    if self._on_token_refresh:
+                        self._on_token_refresh(session.access_token)
+            
+            self._client.auth.on_auth_state_change(handle_auth_change)
+            
+            # Initial session setup
+            self._client.auth.set_session(
+                access_token=self.settings.access_key,
+                refresh_token=self.settings.refresh_token
+            )
+            
+            # Verify connection
             currentUser = self._client.auth.get_user()
             if currentUser.user.id != self.settings.service_user:
-                raise Exception(f"_User ID mismatch. Expected: {self.settings.service_user}, Got: {currentUser.user.id}")
-            self._logger.info("_connect: Successfully established connection to Additv backend")
-            return
-        except Exception as initial_error:
-            self._logger.warning(f"_connect: Initial connection failed - Error: {str(initial_error)}")
+                raise Exception(f"User ID mismatch. Expected: {self.settings.service_user}, Got: {currentUser.user.id}")
+            self._logger.info("Successfully established connection to Additv backend")
+        except Exception as e:
+            self._logger.error(f"Connection failed: {str(e)}")
 
     def _execute_with_retry(self, operation, operation_name, *args, **kwargs):
         """Execute operation with retries"""
