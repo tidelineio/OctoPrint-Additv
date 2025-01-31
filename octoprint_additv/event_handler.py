@@ -1,44 +1,45 @@
 import logging
 from typing import Optional, Dict, Any
 
-# Printer event type constants matching database enum values
-PRINTER_EVENT_JOB_STARTED = "Job_Started"
-PRINTER_EVENT_JOB_COMPLETE = "Job_Complete"
-PRINTER_EVENT_JOB_FAILED = "Job_Failed"
-PRINTER_EVENT_JOB_PAUSED = "Job_Paused"
-
-
 class EventHandler:
+    # Events that will be handled and stored
+    EVENTS_TO_HANDLE = {
+        "Startup",
+        "Shutdown",
+        "Connected",
+        "Disconnected",
+        "Error",
+        "PrinterStateChanged",
+        "PrintStarted",
+        "PrintFailed",
+        "PrintDone",
+        "PrintCancelled",
+        "PrintPaused",
+        "PrintResumed",
+        "PrinterReset",
+        "FirmwareData",
+    }
+
     def __init__(self, additv_client, logger=None):
+        """
+        Initialize the event handler
+        
+        Args:
+            additv_client: The Additv client instance
+            logger: Optional logger instance
+        """
         self._additv = additv_client
         self._logger = logger or logging.getLogger(__name__)
 
-    def map_event(self, event: str, payload: Dict[str, Any]) -> Optional[str]:
-        """Map OctoPrint events to printer_event_type enum values"""
-        match event:
-            case "PrintStarted":
-                return PRINTER_EVENT_JOB_STARTED
-
-            case "PrintDone":
-                return PRINTER_EVENT_JOB_COMPLETE
-
-            case "PrintFailed" | "PrintCancelled":
-                return PRINTER_EVENT_JOB_FAILED
-
-            case "PrintPaused":
-                return PRINTER_EVENT_JOB_PAUSED
-
-            case _:
-                return None
-
     def handle_event(self, event: str, payload: Dict[str, Any]) -> None:
-        """Handle an OctoPrint event by mapping it and inserting into the database"""
+        """Handle an OctoPrint event by inserting it into the database if it's in the events_to_handle set"""
         try:
-            if event != "ZChange":
-                self._logger.debug(f"Handling event {event}")
-                mapped_event = self.map_event(event, payload)
-                if mapped_event:
-                    self.insert_event(mapped_event, payload)
+            if event in self.EVENTS_TO_HANDLE:
+                # We should eventually filter the PrinterStateChanged events to only record the ones that are relevant
+                # as this event duplicates some other events and we only care about the state of the USB connection
+                # Logging all PrinterStateChanged events for now
+                self._logger.debug(f"Recording event {event}")
+                self.insert_event(event, payload)
 
         except Exception as e:
             self._logger.error(f"Error handling event {event}: {str(e)}")
@@ -50,7 +51,7 @@ class EventHandler:
                 self._logger.error("No valid Additv connection")
                 return
             
-            self._additv.insert("printer_events", {"event": event_type})
+            self._additv.insert("printer_events", {"event": event_type, "data": data})
 
         except Exception as e:
             self._logger.error(f"Error inserting event {event_type}: {str(e)}")

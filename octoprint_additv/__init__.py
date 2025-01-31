@@ -42,8 +42,6 @@ class AdditivPlugin(
 
     def on_event(self, event, payload):
         """Handle OctoPrint events by passing them to our event handler"""
-        if event == "ZChange":
-            return None
         if self.event_handler:
             self.event_handler.handle_event(event, payload)
 
