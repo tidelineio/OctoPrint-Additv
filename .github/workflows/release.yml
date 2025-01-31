@@ -1,14 +1,17 @@
-name: Create Release on PR Merge
+name: Create Release
 
 on:
   pull_request:
     types: [closed]
     branches:
       - main
+  push:
+    branches:
+      - main
 
 jobs:
   create_release:
-    if: github.event.pull_request.merged == true
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
     permissions:
       contents: write
