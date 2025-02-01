@@ -12,6 +12,7 @@ class AdditivPlugin(
         super().__init__()
         self.additv_client = None
         self.event_handler = None
+        self._temp_log_count = 0  # Counter for temperature logs
       
     def on_after_startup(self):
         """Initialize the Additv client and event handler."""
@@ -49,6 +50,34 @@ class AdditivPlugin(
         """Define default settings for the plugin."""
         return dict()
 
+    def handle_temperatures_received(self, comm, parsed_temps):
+        """
+        Hook handler for octoprint.comm.protocol.temperatures.received
+        Logs the first 10 temperature readings from the printer.
+        """
+        # Only log if we haven't reached 10 logs yet
+        if self._temp_log_count < 10:
+            # Log each temperature reading
+            for key, value in parsed_temps.items():
+                if isinstance(value, tuple) and len(value) == 2:
+                    actual, target = value
+                    self._logger.info(f"Temperature {key}: Current={actual}°C, Target={target}°C")
+            self._temp_log_count += 1
+            
+            # Log when we reach the limit
+            if self._temp_log_count == 10:
+                self._logger.info("Temperature logging limit reached (10 readings). Further readings will be processed but not logged.")
+        
+        # Return unmodified temperatures
+        return parsed_temps
+
+
 __plugin_name__ = "Additv Plugin"
 __plugin_pythoncompat__ = ">=3.11,<4"
 __plugin_implementation__ = AdditivPlugin()
+
+def __plugin_load__():
+    global __plugin_hooks__
+    __plugin_hooks__ = {
+        "octoprint.comm.protocol.temperatures.received": __plugin_implementation__.handle_temperatures_received
+    }
