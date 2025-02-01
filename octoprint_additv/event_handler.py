@@ -18,6 +18,14 @@ class EventHandler:
         "PrintResumed",
         "PrinterReset",
         "FirmwareData",
+        # GCODE-specific events
+        "FilamentRunout",
+        "ThermalError",
+        "XCrash",
+        "YCrash",
+        "ZCrash",
+        "HotendFanError",
+        "PartFanError",
     }
 
     def __init__(self, additv_client, logger=None):
