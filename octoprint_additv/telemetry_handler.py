@@ -3,11 +3,6 @@ from typing import Optional, Dict, List, Union
 import logging
 
 class TelemetryHandler:
-    # Temperature ranges for validation (in Celsius)
-    TOOL_TEMP_RANGE = (0, 300)
-    BED_TEMP_RANGE = (0, 120)
-    AMBIENT_TEMP_RANGE = (0, 50)
-
     def __init__(self, additv_client, logger: Optional[logging.Logger] = None):
         self.additv_client = additv_client
         self._logger = logger or logging.getLogger(__name__)
@@ -49,13 +44,6 @@ class TelemetryHandler:
             finally:
                 self._pending_temp = None
                 self._pending_power = None
-
-    def _validate_range(self, value: float, name: str, min_val: float, max_val: float) -> Optional[float]:
-        """Validate a value is within an expected range"""
-        if min_val <= value <= max_val:
-            return value
-        self._logger.warning(f"{name} value {value} outside valid range [{min_val}, {max_val}]")
-        return None
 
     def _scale_power(self, value: float) -> float:
         """Scale power value from 0-127 to 0-100%"""
@@ -106,23 +94,23 @@ class TelemetryHandler:
             # Tool temperatures (try both T: and T0:)
             tool_temp = extract_float(temp_line, "T0:") or extract_float(temp_line, "T:")
             if tool_temp is not None:
-                telemetry["tool0_temp"] = self._validate_range(tool_temp, "Tool temperature", *self.TOOL_TEMP_RANGE)
+                telemetry["tool0_temp"] = tool_temp
                 
             # Tool target temperature
             tool_target = extract_target_temp(temp_line, "T0:") or extract_target_temp(temp_line, "T:")
             if tool_target is not None:
-                telemetry["tool0_target_temp"] = self._validate_range(tool_target, "Tool target temperature", *self.TOOL_TEMP_RANGE)
+                telemetry["tool0_target_temp"] = tool_target
                 self._logger.debug(f"Parsed tool target temp: {tool_target}")
             
             # Bed temperature and target
             if bed_temp := extract_float(temp_line, "B:"):
-                telemetry["bed_temp"] = self._validate_range(bed_temp, "Bed temperature", *self.BED_TEMP_RANGE)
+                telemetry["bed_temp"] = bed_temp
                 self._logger.debug(f"Parsed bed temp: {bed_temp}")
             
             # Parse bed target temp separately to ensure it's captured
             bed_target = extract_target_temp(temp_line, "B:")
             if bed_target is not None:
-                telemetry["bed_target_temp"] = self._validate_range(bed_target, "Bed target temperature", *self.BED_TEMP_RANGE)
+                telemetry["bed_target_temp"] = bed_target
                 self._logger.debug(f"Parsed bed target temp: {bed_target}")
 
             # Tool and bed power values (scaled from 0-127 to 0-100%)
@@ -138,42 +126,20 @@ class TelemetryHandler:
                     telemetry["bed_power"] = self._scale_power(bed_power)
                     self._logger.debug(f"Parsed bed power: {bed_power} -> {telemetry['bed_power']}%")
 
-            # General power value (0-100%)
-            if "P:" in temp_line:
-                power = extract_float(temp_line, "P:")
-                if power is not None:
-                    telemetry["power"] = power
-                    self._logger.debug(f"Parsed power: {power}%")
-
             # Ambient temperature
             if ambient_temp := extract_float(temp_line, "A:"):
-                telemetry["ambient_temp"] = self._validate_range(ambient_temp, "Ambient temperature", *self.AMBIENT_TEMP_RANGE)
+                telemetry["ambient_temp"] = ambient_temp
 
-            # Parse power/fan line
             # Parse fan speeds (removing RPM suffix)
             if "E0:" in power_line:
                 heatsink_fan = extract_float(power_line, "E0:")
                 if heatsink_fan is not None:
-                    telemetry["tool0_heatsink_fan_rpm"] = round(max(0, heatsink_fan), 2)
+                    telemetry["tool0_heatsink_fan_rpm"] = round(heatsink_fan, 2)
             
             if "PRN1:" in power_line:
                 part_fan = extract_float(power_line, "PRN1:")
                 if part_fan is not None:
-                    telemetry["tool0_part_fan_rpm"] = round(max(0, part_fan), 2)
-
-            # Fan power/duty values (scaled from 0-127 to 0-100%)
-            if "E0@:" in power_line:
-                heatsink_fan_power = extract_float(power_line, "E0@:")
-                if heatsink_fan_power is not None:
-                    telemetry["tool0_heatsink_fan_power"] = self._scale_power(heatsink_fan_power)
-            
-            if "PRN1@:" in power_line:
-                part_fan_power = extract_float(power_line, "PRN1@:")
-                if part_fan_power is not None:
-                    telemetry["tool0_part_fan_power"] = self._scale_power(part_fan_power)
-
-            # Add timestamp
-            telemetry["timestamp"] = int(time.time())
+                    telemetry["tool0_part_fan_rpm"] = round(part_fan, 2)
 
         except Exception as e:
             self._logger.error(f"Error parsing telemetry: {e}")
