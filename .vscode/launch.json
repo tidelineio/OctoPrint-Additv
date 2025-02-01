@@ -12,6 +12,7 @@
                 "--host=0.0.0.0"
             ],
             "justMyCode": false,
+            "python": "/usr/local/bin/python",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}",
                 "OCTOPRINT_HOST": "0.0.0.0"
