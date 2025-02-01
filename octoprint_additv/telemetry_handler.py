@@ -37,7 +37,7 @@ class TelemetryHandler:
         if self._pending_temp and self._pending_power:
             try:
                 telemetry = self._parse_telemetry(self._pending_temp, self._pending_power)
-                self.additv_client.publish_telemetry_event({"telemetry": telemetry})
+                self.additv_client.publish_telemetry_event(telemetry)
                 self._logger.debug(f"Published telemetry event: {telemetry}")
             except Exception as e:
                 self._logger.error(f"Error creating telemetry event: {e}")
