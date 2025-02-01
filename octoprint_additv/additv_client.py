@@ -1,6 +1,7 @@
 from typing import Dict, Any, Optional, Callable, List
 from dataclasses import dataclass
 from pathlib import Path
+from datetime import datetime, timezone
 import time
 import os
 import yaml
@@ -247,16 +248,16 @@ class AdditvClient:
         if self._running and self._supabase:
             self._queue.put(
                 lambda: self._supabase.table("printer_events")
-                    .insert({"event": event_type, "data": data})
+                    .insert({"event": event_type, "data": data, "source_timestamp": datetime.now(timezone.utc).isoformat()})
                     .execute()
             )
 
-    def publish_telemetry_batch(self, telemetry_records: List[Dict]) -> None:
-        """Publish a batch of telemetry records"""
+    def publish_telemetry_event(self, telemetry: Dict) -> None:
+        """Publish a single telemetry event to the queue for processing"""
         if self._running and self._supabase:
             self._queue.put(
                 lambda: self._supabase.table("printer_telemetry")
-                    .insert(telemetry_records)
+                    .insert({"data": telemetry, "source_timestamp": datetime.now(timezone.utc).isoformat()})
                     .execute()
             )
 

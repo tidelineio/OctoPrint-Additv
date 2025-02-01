@@ -8,10 +8,6 @@ class TelemetryHandler:
         self._logger = logger or logging.getLogger(__name__)
         self._pending_temp = None
         self._pending_power = None
-        self._telemetry_buffer: List[Dict] = []
-        self._last_send_time = 0
-        self._SEND_INTERVAL = 10.0  # seconds
-        self._MAX_BUFFER_SIZE = 1000  # Safety limit
 
     def process_gcode_received_hook(self, line: str) -> None:
         first_char = line[0] if line else ''
@@ -38,7 +34,8 @@ class TelemetryHandler:
         if self._pending_temp and self._pending_power:
             telemetry = self._parse_telemetry(self._pending_temp, self._pending_power)
             
-            self._telemetry_buffer.append({
+            # Send telemetry event directly
+            self.additv_client.publish_telemetry_event({
                 "printer_id": self.additv_client.settings.printer_id,
                 "telemetry": telemetry,
                 "timestamp": time.time()
@@ -47,29 +44,6 @@ class TelemetryHandler:
             # Clear pending readings
             self._pending_temp = None
             self._pending_power = None
-            
-            # Check if it's time to send or if buffer is getting too large
-            current_time = time.time()
-            if (current_time - self._last_send_time >= self._SEND_INTERVAL or 
-                len(self._telemetry_buffer) >= self._MAX_BUFFER_SIZE):
-                self._send_buffered_telemetry()
-
-    def _send_buffered_telemetry(self) -> None:
-        if not self._telemetry_buffer:
-            return
-            
-        try:
-            # Send all buffered telemetry as a batch
-            self.additv_client.publish_telemetry_batch(self._telemetry_buffer)
-            
-            # Clear buffer and update last send time
-            self._telemetry_buffer = []
-            self._last_send_time = time.time()
-            
-        except Exception:
-            # If send fails, keep the buffer but enforce max size
-            while len(self._telemetry_buffer) >= self._MAX_BUFFER_SIZE:
-                self._telemetry_buffer.pop(0)  # Remove oldest entries if buffer is full
 
     def _parse_telemetry(self, temp_line: str, power_line: str) -> Dict:
         """Parse temperature and power lines into a single telemetry record"""
