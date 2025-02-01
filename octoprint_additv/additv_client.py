@@ -206,7 +206,7 @@ class AdditvClient:
                         access_key=session.access_token,
                         refresh_token=session.refresh_token
                     )
-                    self._logger.info("Saved updated tokens from Supabase refresh")
+                    self._logger.debug("Saved updated tokens from Supabase refresh")
                     # Call the token refresh callback if configured
                     if self._on_token_refresh:
                         self._on_token_refresh(session.access_token)
