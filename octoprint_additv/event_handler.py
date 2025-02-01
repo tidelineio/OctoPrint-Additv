@@ -59,7 +59,37 @@ class EventHandler:
                 self._logger.error("No valid Additv connection")
                 return
             
-            self._additv.insert("printer_events", {"event": event_type, "data": data})
+            self._additv.publish_printer_event(event_type, data)
 
         except Exception as e:
-            self._logger.error(f"Error inserting event {event_type}: {str(e)}")
+            self._logger.error(f"Error publishing event {event_type}: {str(e)}")
+
+    def process_gcode_received_hook(self, line: str) -> None:
+        """Process GCODE lines for specific events"""
+        # Quick length check first
+        if len(line) < 4:  # Minimum length for any of our patterns to quickly fail out if not met
+            return
+            
+        # Check for crash events first (most critical)
+        if "CRASH_DETECTED" in line:
+            if "X" in line:
+                self.handle_event("XCrash", {"line": line})
+            elif "Y" in line:
+                self.handle_event("YCrash", {"line": line})
+            elif "Z" in line:
+                self.handle_event("ZCrash", {"line": line})
+                
+        # Check for thermal error
+        elif "TM: error" in line:
+            self.handle_event("ThermalError", {"line": line})
+            
+        # Check for filament runout
+        elif "Enqueing to the front:" in line and "M600" in line:
+            self.handle_event("FilamentRunout", {"line": line})
+            
+        # Check for fan errors
+        elif "fan speed is lower than expected" in line:
+            if "Hotend" in line:
+                self.handle_event("HotendFanError", {"line": line})
+            elif "Print" in line:
+                self.handle_event("PartFanError", {"line": line})

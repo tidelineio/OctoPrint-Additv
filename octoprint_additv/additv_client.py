@@ -1,12 +1,13 @@
-from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any, Optional, Callable, List
 from dataclasses import dataclass
 from pathlib import Path
-import logging
 import time
 import os
 import yaml
+import random
 from supabase import create_client
+from queue import Queue, Empty
+from threading import Thread, Lock
 
 @dataclass
 class ConnectionSettings:
@@ -26,10 +27,11 @@ class ConnectionSettings:
 class SettingsManager:
     """Handles persistence and management of Additv connection settings."""
     
-    def __init__(self, plugin_data_folder: str):
+    def __init__(self, plugin_data_folder: str, logger=None):
         """Initialize settings manager with default settings file location."""
         self._settings_file: Path = Path(plugin_data_folder) / "additv.yaml"
         self._settings: ConnectionSettings = ConnectionSettings()
+        self._logger = logger
         self._load_settings()
     
     @property
@@ -46,7 +48,7 @@ class SettingsManager:
                     if data:
                         self._settings = ConnectionSettings(**data)
             except Exception as e:
-                logging.error(f"Failed to load settings: {str(e)}")
+                self._logger.error(f"Failed to load settings: {str(e)}")
     
     def _save_settings(self) -> None:
         """Save settings to yaml file."""
@@ -66,7 +68,7 @@ class SettingsManager:
             with open(self._settings_file, 'w') as f:
                 yaml.safe_dump(settings_dict, f)
         except Exception as e:
-            logging.error(f"Failed to save settings: {str(e)}")
+            self._logger.error(f"Failed to save settings: {str(e)}")
     
     def update_access_key(self, new_key: str) -> None:
         """Update the access key and save settings."""
@@ -109,24 +111,42 @@ class SettingsManager:
             
             return True
         except Exception as e:
-            logging.error(f"Failed to register printer: {str(e)}")
+            self._logger.error(f"Failed to register printer: {str(e)}")
             return False
+
+@dataclass
+class QueuedOperation:
+    """Represents a database operation in the queue"""
+    type: str
+    table: str
+    data: Any
+    extra: Dict[str, Any]
+    retries: int = 0
 
 class AdditvClient:
     """Client for handling asynchronous communication with Additv backend services"""
+    """Client for handling asynchronous communication with Additv backend services"""
     
-    def __init__(self, printer_name: str, logger: Optional[logging.Logger] = None, on_token_refresh: Optional[Callable[[str], None]] = None, plugin_data_folder: Optional[str] = None):
+    def __init__(self, printer_name: str, logger=None, 
+                 on_token_refresh: Optional[Callable[[str], None]] = None, 
+                 plugin_data_folder: Optional[str] = None,
+                 max_retry_delay: float = 15.0):
         if not printer_name:
             raise ValueError("Printer name is required")
         if not plugin_data_folder:
             raise ValueError("Plugin data folder is required")
             
-        self._logger = logger or logging.getLogger(__name__)
-        self._settings_manager = SettingsManager(plugin_data_folder)
-        self._client = None
-        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="Additv")
-        self._on_token_refresh = on_token_refresh
+        self._logger = logger
+        self._max_retry_delay = max_retry_delay
+        self._settings_manager = SettingsManager(plugin_data_folder, logger)
+        self._supabase = None
         self._printer_name = printer_name
+        self._on_token_refresh = on_token_refresh
+        self._queue = Queue()
+        self._running = True
+        self._lock = Lock()
+        self._worker_thread = Thread(target=self._process_queue, daemon=True)
+        self._worker_thread.start()
         
         # Check for environment variables
         env_url = os.environ.get("ADDITV_URL")
@@ -175,9 +195,9 @@ class AdditvClient:
     def _connect(self):
         """Establish connection to Additv backend"""
         try:
-            self._client = create_client(self.settings.url, self.settings.anon_key)
+            self._supabase = create_client(self.settings.url, self.settings.anon_key)
             
-            # Set up auth state change listener specifically for token refresh
+            # Set up auth state change listener
             def handle_auth_change(event, session):
                 if event == 'TOKEN_REFRESHED' and session:
                     # Update and persist both tokens
@@ -190,75 +210,59 @@ class AdditvClient:
                     if self._on_token_refresh:
                         self._on_token_refresh(session.access_token)
             
-            self._client.auth.on_auth_state_change(handle_auth_change)
+            self._supabase.auth.on_auth_state_change(handle_auth_change)
             
             # Initial session setup
-            self._client.auth.set_session(
+            self._supabase.auth.set_session(
                 access_token=self.settings.access_key,
                 refresh_token=self.settings.refresh_token
             )
             
             # Verify connection
-            currentUser = self._client.auth.get_user()
+            currentUser = self._supabase.auth.get_user()
             if currentUser.user.id != self.settings.service_user:
                 raise Exception(f"User ID mismatch. Expected: {self.settings.service_user}, Got: {currentUser.user.id}")
+                
             self._logger.info("Successfully established connection to Additv backend")
         except Exception as e:
             self._logger.error(f"Connection failed: {str(e)}")
 
-    def _execute_with_retry(self, operation, operation_name, *args, **kwargs):
-        """Execute operation with retries"""
-        retries = 3
-        for attempt in range(retries):
+    def _process_queue(self):
+        """Process operations from the queue"""
+        while self._running:
             try:
-                result = operation(*args, **kwargs)
-                self._logger.debug(f"{operation_name}: Operation completed successfully")
-                return result
+                operation = self._queue.get(timeout=1.0)
+                try:
+                    operation()  # Execute the queued operation
+                except Exception as e:
+                    self._logger.error(f"Operation failed: {str(e)}")
+                self._queue.task_done()
+            except Empty:
+                continue
             except Exception as e:
-                if attempt == retries - 1:  # Last attempt
-                    error_msg = f"{operation_name}: Operation failed after {retries} attempts - Error: {str(e)}, Type: {type(e).__name__}"
-                    self._logger.error(error_msg)
-                    raise type(e)(error_msg) from e
-                self._logger.warning(f"{operation_name}: Attempt {attempt + 1}/{retries} failed - Error: {str(e)}, Type: {type(e).__name__}")
-                time.sleep(1 * (attempt + 1))
+                self._logger.error(f"Error processing queue: {str(e)}")
 
-    def insert(self, table: str, data: Dict[str, Any]) -> None:
-        """Asynchronously insert data to Additv"""
-        operation_name = f"insert(table='{table}')"
-        self._logger.debug(f"{operation_name}: Starting insert operation with data: {data}")
-        def _insert():
-            return self._execute_with_retry(
-                lambda: self._client.table(table).insert(data).execute(),
-                operation_name
+    def publish_printer_event(self, event_type: str, data: Dict[str, Any]) -> None:
+        """Publish a printer event to the Additv backend"""
+        if self._running and self._supabase:
+            self._queue.put(
+                lambda: self._supabase.table("printer_events")
+                    .insert({"event": event_type, "data": data})
+                    .execute()
             )
-        self._executor.submit(_insert)
 
-    def upsert(self, table: str, data: Dict[str, Any], on_conflict: str) -> None:
-        """Asynchronously upsert data to Additv"""
-        operation_name = f"upsert(table='{table}', on_conflict='{on_conflict}')"
-        self._logger.debug(f"{operation_name}: Starting upsert operation with data: {data}")
-        def _upsert():
-            return self._execute_with_retry(
-                lambda: self._client.table(table).upsert(data, on_conflict=on_conflict).execute(),
-                operation_name
+    def publish_telemetry_batch(self, telemetry_records: List[Dict]) -> None:
+        """Publish a batch of telemetry records"""
+        if self._running and self._supabase:
+            self._queue.put(
+                lambda: self._supabase.table("printer_telemetry")
+                    .insert(telemetry_records)
+                    .execute()
             )
-        self._executor.submit(_upsert)
 
-    def update(self, table: str, data: Dict[str, Any], match: Dict[str, Any]) -> None:
-        """Asynchronously update data in Additv"""
-        operation_name = f"update(table='{table}', match={match})"
-        self._logger.debug(f"{operation_name}: Starting update operation with data: {data}")
-        def _update():
-            try:
-                query = self._client.table(table)
-                for field, value in match.items():
-                    query = query.eq(field, value)
-                return self._execute_with_retry(
-                    lambda: query.update(data).execute(),
-                    operation_name
-                )
-            except Exception as e:
-                error_msg = f"{operation_name}: Failed to build or execute update query - Error: {str(e)}, Type: {type(e).__name__}"
-                self._logger.error(error_msg)
-                raise type(e)(error_msg) from e
-        self._executor.submit(_update)
+    def stop(self):
+        """Stop the queue processor"""
+        with self._lock:
+            self._running = False
+        if self._worker_thread.is_alive():
+            self._worker_thread.join(timeout=5.0)
