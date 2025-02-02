@@ -17,8 +17,6 @@ class TelemetryHandler:
             return
             
         first_char = line[0]
-        self._logger.debug(f"Processing gcode line: {line}")
-        
         if first_char == 'T':  # Temperature
             if "T:" in line and "B:" in line:
                 self._process_temperature(line)
@@ -27,12 +25,10 @@ class TelemetryHandler:
                 self._process_power(line)
 
     def _process_temperature(self, line: str) -> None:
-        self._logger.debug(f"Processing temperature line: {line}")
         self._pending_temp = line
         self._try_create_telemetry()
 
     def _process_power(self, line: str) -> None:
-        self._logger.debug(f"Processing power/fan line: {line}")
         self._pending_power = line
         self._try_create_telemetry()
 
@@ -70,11 +66,11 @@ class TelemetryHandler:
                     # Update last sent temperatures
                     self._last_tool_temp = telemetry.get('tool0_temp')
                     self._last_bed_temp = telemetry.get('bed_temp')
-                else:
-                    self._logger.debug("Skipping telemetry - temperature change below threshold")
+                # else:
+                    # self._logger.debug("Skipping telemetry - temperature change below threshold")
                     
             except Exception as e:
-                self._logger.error(f"Error creating telemetry event: {e}")
+                self._logger.debug(f"Error creating telemetry event: {e}")
             finally:
                 self._pending_temp = None
                 self._pending_power = None
@@ -106,7 +102,7 @@ class TelemetryHandler:
                 value_str = line[start:end].replace('RPM', '').strip()
                 return float(value_str)
             except ValueError as e:
-                self._logger.error(f"Error parsing value for {key}: {e}")
+                self._logger.debug(f"Error parsing value for {key}: {e}")
                 return None
 
         def extract_target_temp(line: str, key: str) -> Optional[float]:
@@ -120,7 +116,7 @@ class TelemetryHandler:
                     return None
                 return extract_float(line[slash_pos:], "/", [" ", "T", "B"])
             except Exception as e:
-                self._logger.error(f"Error parsing target temp for {key}: {e}")
+                self._logger.debug(f"Error parsing target temp for {key}: {e}")
                 return None
 
         try:
@@ -134,31 +130,26 @@ class TelemetryHandler:
             tool_target = extract_target_temp(temp_line, "T0:") or extract_target_temp(temp_line, "T:")
             if tool_target is not None:
                 telemetry["tool0_target_temp"] = tool_target
-                self._logger.debug(f"Parsed tool target temp: {tool_target}")
             
             # Bed temperature and target
             if bed_temp := extract_float(temp_line, "B:"):
                 telemetry["bed_temp"] = bed_temp
-                self._logger.debug(f"Parsed bed temp: {bed_temp}")
             
             # Parse bed target temp separately to ensure it's captured
             bed_target = extract_target_temp(temp_line, "B:")
             if bed_target is not None:
                 telemetry["bed_target_temp"] = bed_target
-                self._logger.debug(f"Parsed bed target temp: {bed_target}")
 
             # Tool and bed power values (scaled from 0-127 to 0-100%)
             if "@:" in temp_line:
                 tool0_power = extract_float(temp_line, "@:")
                 if tool0_power is not None:
                     telemetry["tool0_power"] = self._scale_power(tool0_power)
-                    self._logger.debug(f"Parsed tool power: {tool0_power} -> {telemetry['tool0_power']}%")
             
             if "B@:" in temp_line:
                 bed_power = extract_float(temp_line, "B@:")
                 if bed_power is not None:
                     telemetry["bed_power"] = self._scale_power(bed_power)
-                    self._logger.debug(f"Parsed bed power: {bed_power} -> {telemetry['bed_power']}%")
 
             # Ambient temperature
             if ambient_temp := extract_float(temp_line, "A:"):
@@ -176,7 +167,7 @@ class TelemetryHandler:
                     telemetry["tool0_part_fan_rpm"] = round(part_fan, 2)
 
         except Exception as e:
-            self._logger.error(f"Error parsing telemetry: {e}")
+            self._logger.debug(f"Error parsing telemetry: {e}")
             raise
 
         # Remove None values
