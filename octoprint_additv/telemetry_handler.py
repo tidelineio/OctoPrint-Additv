@@ -8,6 +8,9 @@ class TelemetryHandler:
         self._logger = logger or logging.getLogger(__name__)
         self._pending_temp = None
         self._pending_power = None
+        # Track last sent temperatures for filtering
+        self._last_tool_temp = None
+        self._last_bed_temp = None
 
     def process_gcode_received_hook(self, line: str) -> None:
         if not line:
@@ -33,12 +36,43 @@ class TelemetryHandler:
         self._pending_power = line
         self._try_create_telemetry()
 
+    def _should_send_telemetry(self, telemetry: Dict) -> bool:
+        """
+        Determine if telemetry should be sent based on temperature thresholds:
+        - Always send if any temperature is above 30°C
+        - Only send if temperature change > 0.3°C when below 30°C
+        """
+        tool_temp = telemetry.get('tool0_temp')
+        bed_temp = telemetry.get('bed_temp')
+        
+        # Always send if any temperature is above 30°C
+        if (tool_temp and tool_temp > 30.0) or (bed_temp and bed_temp > 30.0):
+            return True
+            
+        # Check for significant temperature changes (> 0.3°C)
+        temp_changed = False
+        if tool_temp and self._last_tool_temp is not None:
+            temp_changed = abs(tool_temp - self._last_tool_temp) > 0.3
+        if bed_temp and self._last_bed_temp is not None:
+            temp_changed = temp_changed or abs(bed_temp - self._last_bed_temp) > 0.3
+            
+        return temp_changed
+
     def _try_create_telemetry(self) -> None:
         if self._pending_temp and self._pending_power:
             try:
                 telemetry = self._parse_telemetry(self._pending_temp, self._pending_power)
-                self.additv_client.publish_telemetry_event(telemetry)
-                self._logger.debug(f"Published telemetry event: {telemetry}")
+                
+                if self._should_send_telemetry(telemetry):
+                    self.additv_client.publish_telemetry_event(telemetry)
+                    self._logger.debug(f"Published telemetry event: {telemetry}")
+                    
+                    # Update last sent temperatures
+                    self._last_tool_temp = telemetry.get('tool0_temp')
+                    self._last_bed_temp = telemetry.get('bed_temp')
+                else:
+                    self._logger.debug("Skipping telemetry - temperature change below threshold")
+                    
             except Exception as e:
                 self._logger.error(f"Error creating telemetry event: {e}")
             finally:

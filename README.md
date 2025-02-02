@@ -88,3 +88,10 @@ The plugin stores the following settings in `additv.yaml`:
 - `access_key`: Access token (set automatically during registration)
 - `refresh_token`: Refresh token (set automatically during registration)
 - `anon_key`: Anonymous key for public access (set automatically during registration)
+
+### Telemetry Settings
+
+The plugin includes temperature-based telemetry filtering to optimize data transmission:
+
+- High Resolution Mode (above 30°C): Full telemetry data is sent for accurate monitoring during printer operation
+- Low Resolution Mode (below 30°C): Data is only sent when temperature changes exceed 0.3°C, reducing data transmission during idle periods
