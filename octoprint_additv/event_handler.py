@@ -50,13 +50,13 @@ class EventHandler:
                 self.insert_event(event, payload)
 
         except Exception as e:
-            self._logger.error(f"Error handling event {event}: {str(e)}")
+            self._logger.debug(f"Error handling event {event}: {str(e)}")
 
     def insert_event(self, event_type: str, data: Dict[str, Any]) -> None:
         """Insert an event into the printer_events table"""
         try:
             if not self._additv:
-                self._logger.error("No valid Additv connection")
+                self._logger.debug("insert_event - No valid Additv connection")
                 return
             
             self._additv.publish_printer_event(event_type, data)
