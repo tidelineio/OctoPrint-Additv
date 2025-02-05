@@ -99,19 +99,19 @@ class SettingsManager:
             }
 
             # Log request details
-            self._logger.info(f"Registering printer with URL: {register_url}")
-            self._logger.info(f"Request headers: {headers}")
-            self._logger.info(f"Request data: {data}")
+            self._logger.debug(f"Registering printer with URL: {register_url}")
+            self._logger.debug(f"Request headers: {headers}")
+            self._logger.debug(f"Request data: {data}")
 
             # Make request
             response = requests.post(register_url, headers=headers, json=data)
             
             # Log response
-            self._logger.info(f"Registration response status: {response.status_code}")
-            self._logger.info(f"Registration response headers: {dict(response.headers)}")
+            self._logger.debug(f"Registration response status: {response.status_code}")
+            self._logger.debug(f"Registration response headers: {dict(response.headers)}")
             
             response_data = response.json()
-            self._logger.info(f"Registration response data: {response_data}")
+            self._logger.debug(f"Registration response data: {response_data}")
 
             # Update settings
             self.update_settings(
