@@ -43,19 +43,26 @@ class SettingsManager:
     def _load_settings(self) -> None:
         """Load settings from yaml file."""
         if self._settings_file.exists():
+            self._logger.debug(f"Loading settings from {self._settings_file}")
             try:
                 with open(self._settings_file, 'r') as f:
                     data = yaml.safe_load(f)
                     if data:
                         self._settings = ConnectionSettings(**data)
+                        self._logger.debug("Settings loaded successfully")
+                    else:
+                        self._logger.debug("Settings file is empty")
             except Exception as e:
-                self._logger.error(f"Failed to load settings: {str(e)}")
+                self._logger.error(f"Failed to load settings: {str(e)}", exc_info=True)
+        else:
+            self._logger.debug("Settings file does not exist, using defaults")
     
     def _save_settings(self) -> None:
         """Save settings to yaml file."""
         try:
             # Ensure directory exists
             self._settings_file.parent.mkdir(parents=True, exist_ok=True)
+            self._logger.debug(f"Saving settings to {self._settings_file}")
             
             settings_dict = {
                 'url': self._settings.url,
@@ -68,8 +75,9 @@ class SettingsManager:
             }
             with open(self._settings_file, 'w') as f:
                 yaml.safe_dump(settings_dict, f)
+            self._logger.debug("Settings saved successfully")
         except Exception as e:
-            self._logger.error(f"Failed to save settings: {str(e)}")
+            self._logger.error(f"Failed to save settings: {str(e)}", exc_info=True)
     
     def update_access_key(self, new_key: str) -> None:
         """Update the access key and save settings."""
@@ -151,6 +159,8 @@ class AdditvClient:
             raise ValueError("Plugin data folder is required")
             
         self._logger = logger
+        if self._logger:
+            self._logger.debug(f"Initializing AdditvClient for printer: {printer_name}")
         self._max_retry_delay = max_retry_delay
         self._settings_manager = SettingsManager(plugin_data_folder, logger)
         self._supabase = None
@@ -180,6 +190,7 @@ class AdditvClient:
     def _initialize(self) -> None:
         """Initialize the client, handling registration if needed."""
         settings = self._settings_manager.settings
+        self._logger.debug(f"Initializing with settings - URL: {settings.url}, Has token: {bool(settings.registration_token)}, Has anon key: {bool(settings.anon_key)}, Has printer ID: {bool(settings.printer_id)}")
         
         # Case 1: We have URL and registration token but no printer ID
         if (settings.url and settings.registration_token and settings.anon_key and
@@ -212,6 +223,7 @@ class AdditvClient:
     def _connect(self):
         """Establish connection to Additv backend"""
         try:
+            self._logger.debug(f"Connecting to Supabase at URL: {self.settings.url}")
             self._supabase = create_client(self.settings.url, self.settings.anon_key)
             
             # Set up auth state change listener
@@ -230,6 +242,7 @@ class AdditvClient:
             self._supabase.auth.on_auth_state_change(handle_auth_change)
             
             # Initial session setup
+            self._logger.debug("Setting up initial Supabase session")
             self._supabase.auth.set_session(
                 access_token=self.settings.access_key,
                 refresh_token=self.settings.refresh_token
@@ -246,40 +259,52 @@ class AdditvClient:
 
     def _process_queue(self):
         """Process operations from the queue"""
+        self._logger.debug("Starting queue processor")
         while self._running:
             try:
                 operation = self._queue.get(timeout=1.0)
                 try:
+                    self._logger.debug("Processing queued operation")
                     operation()  # Execute the queued operation
+                    self._logger.debug("Operation completed successfully")
                 except Exception as e:
-                    self._logger.error(f"Operation failed: {str(e)}")
+                    self._logger.error(f"Operation failed: {str(e)}", exc_info=True)
                 self._queue.task_done()
             except Empty:
                 continue
             except Exception as e:
-                self._logger.error(f"Error processing queue: {str(e)}")
+                self._logger.error(f"Error processing queue: {str(e)}", exc_info=True)
 
     def publish_printer_event(self, event_type: str, data: Dict[str, Any]) -> None:
         """Publish a printer event to the Additv backend"""
         if self._running and self._supabase:
+            self._logger.debug(f"Queueing printer event: {event_type} with data: {data}")
             self._queue.put(
                 lambda: self._supabase.table("printer_events")
                     .insert({"event": event_type, "data": data, "source_timestamp": datetime.now(timezone.utc).isoformat()})
                     .execute()
             )
+        else:
+            self._logger.warning(f"Skipping event {event_type}: client not running or not connected")
 
     def publish_telemetry_event(self, telemetry: Dict) -> None:
         """Publish a single telemetry event to the queue for processing"""
         if self._running and self._supabase:
+            self._logger.debug(f"Queueing telemetry event with data: {telemetry}")
             self._queue.put(
                 lambda: self._supabase.table("printer_telemetry")
                     .insert({"data": telemetry, "source_timestamp": datetime.now(timezone.utc).isoformat()})
                     .execute()
             )
+        else:
+            self._logger.warning("Skipping telemetry event: client not running or not connected")
 
     def stop(self):
         """Stop the queue processor"""
+        self._logger.info("Stopping AdditvClient")
         with self._lock:
             self._running = False
         if self._worker_thread.is_alive():
+            self._logger.debug("Waiting for worker thread to complete...")
             self._worker_thread.join(timeout=5.0)
+            self._logger.info("AdditvClient stopped")
