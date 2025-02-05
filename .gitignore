@@ -39,3 +39,4 @@ ENV/
 Thumbs.db
 /.devcontainer/.octoprint
 
+.env.staging
