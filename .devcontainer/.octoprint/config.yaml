@@ -34,6 +34,10 @@ plugins:
     enabled: true
 printerProfiles:
   default: _default
+serial:
+  autoconnect: true
+  baudrate: 0
+  port: AUTO
 server:
   firstRun: false
   ignoreIncompleteStartup: true

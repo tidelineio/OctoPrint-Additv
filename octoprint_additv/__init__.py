@@ -69,6 +69,16 @@ class AdditivPlugin(
         if self.event_handler:
             self.event_handler.handle_event(event, payload)
 
+    def firmware_capability_hook(self, comm_instance, capability, enabled, already_defined, *args, **kwargs):
+        """Log firmware capability information"""
+        self._logger.debug(f"Firmware capability: {capability}, enabled: {enabled}, already_defined: {already_defined}")
+        return capability, enabled, already_defined
+
+    def handle_connect_hook(self, comm_instance, port, baudrate, read_timeout, *args, **kwargs):
+        """Log printer connection information"""
+        self._logger.debug(f"Printer connecting - Port: {port}, Baudrate: {baudrate}, Read Timeout: {read_timeout}")
+        return port, baudrate, read_timeout
+
     def get_settings_defaults(self):
         """Define default settings for the plugin."""
         return dict()
@@ -91,5 +101,7 @@ def __plugin_load__():
     
     global __plugin_hooks__
     __plugin_hooks__ = {
-        "octoprint.comm.protocol.gcode.received": plugin.gcode_received_hook
+        "octoprint.comm.protocol.gcode.received": plugin.gcode_received_hook,
+        "octoprint.comm.protocol.firmware.capabilities": plugin.firmware_capability_hook,
+        "octoprint.printer.handle_connect": plugin.handle_connect_hook,
     }
