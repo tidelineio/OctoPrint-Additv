@@ -35,7 +35,7 @@ class AdditivPlugin(
         self.telemetry_handler = None
         self.filament_tracker = None
       
-    def on_after_startup(self):
+    def on_startup(self, host, port):
         """Initialize the Additv client and event handler."""
         # First try to create and initialize the Additv client
         try:
@@ -61,6 +61,17 @@ class AdditivPlugin(
                 self.telemetry_handler = TelemetryHandler(self.additv_client, self._logger)
                 self.filament_tracker = FilamentTracker(self._logger)
                 self._logger.info("Additv handlers initialized")
+                
+                # Check printer state and send appropriate event
+                state_id = self._printer.get_state_id()
+                self._logger.debug(f"Checking printer state during startup: {state_id}")
+                if state_id == "OPERATIONAL":
+                    self._logger.debug("Printer is operational, sending Connected event")
+                    self.event_handler.handle_event("Connected", {})
+                else:
+                    self._logger.debug(f"Printer is not operational ({state_id}), sending Disconnected event")
+                    self.event_handler.handle_event("Disconnected", {})
+                    
             except Exception as e:
                 self._logger.error(f"Failed to initialize handlers: {str(e)}")
 
@@ -68,16 +79,6 @@ class AdditivPlugin(
         """Handle OctoPrint events by passing them to our event handler"""
         if self.event_handler:
             self.event_handler.handle_event(event, payload)
-
-    def firmware_capability_hook(self, comm_instance, capability, enabled, already_defined, *args, **kwargs):
-        """Log firmware capability information"""
-        self._logger.debug(f"Firmware capability: {capability}, enabled: {enabled}, already_defined: {already_defined}")
-        return capability, enabled, already_defined
-
-    def handle_connect_hook(self, comm_instance, port, baudrate, read_timeout, *args, **kwargs):
-        """Log printer connection information"""
-        self._logger.debug(f"Printer connecting - Port: {port}, Baudrate: {baudrate}, Read Timeout: {read_timeout}")
-        return port, baudrate, read_timeout
 
     def get_settings_defaults(self):
         """Define default settings for the plugin."""
@@ -102,6 +103,4 @@ def __plugin_load__():
     global __plugin_hooks__
     __plugin_hooks__ = {
         "octoprint.comm.protocol.gcode.received": plugin.gcode_received_hook,
-        "octoprint.comm.protocol.firmware.capabilities": plugin.firmware_capability_hook,
-        "octoprint.printer.handle_connect": plugin.handle_connect_hook,
     }

@@ -36,8 +36,11 @@ printerProfiles:
   default: _default
 serial:
   autoconnect: true
-  baudrate: 0
-  port: AUTO
+  baudrate: 250000
+  blockedCommands: []
+  log: $ENABLE_SERIAL_LOGGING
+  pausingCommands: []
+  port: VIRTUAL
 server:
   firstRun: false
   ignoreIncompleteStartup: true
