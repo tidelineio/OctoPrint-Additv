@@ -89,7 +89,10 @@ class SettingsManager:
         try:
             # Prepare request
             register_url = f"{url}/functions/v1/register-printer"
-            headers = {"Content-Type": "application/json"}
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.settings.anon_key}"
+            }
             data = {
                 "token": registration_token,
                 "name": printer_name
@@ -106,8 +109,7 @@ class SettingsManager:
                 printer_id=str(response_data["printer_id"]),
                 service_user=response_data["service_user"],
                 access_key=response_data["access_token"],
-                refresh_token=response_data["refresh_token"],
-                anon_key=response_data["anon_key"]
+                refresh_token=response_data["refresh_token"]
             )
             
             return True
@@ -152,11 +154,14 @@ class AdditvClient:
         # Check for environment variables
         env_url = os.environ.get("ADDITV_URL")
         env_token = os.environ.get("ADDITV_REGISTRATION_TOKEN")
+        env_anon_key = os.environ.get("ADDITV_ANON_KEY")
         
         if env_url:
             self._settings_manager.update_settings(url=env_url)
         if env_token:
             self._settings_manager.update_settings(registration_token=env_token)
+        if env_anon_key:
+            self._settings_manager.update_settings(anon_key=env_anon_key)
         
         # Initialize connection or register if needed
         self._initialize()
@@ -165,9 +170,9 @@ class AdditvClient:
         """Initialize the client, handling registration if needed."""
         settings = self._settings_manager.settings
         
-        # Case 1: We have URL and registration token but no access credentials
-        if (settings.url and settings.registration_token and 
-            not settings.access_key and not settings.printer_id):
+        # Case 1: We have URL and registration token but no printer ID
+        if (settings.url and settings.registration_token and settings.anon_key and
+            not settings.printer_id):
             self._logger.info("Attempting to register printer with Additv")
             if not self._settings_manager.register_printer(
                 settings.url, 
@@ -181,12 +186,12 @@ class AdditvClient:
             self._connect()
             
         # Case 2: We have connection credentials
-        elif settings.url and settings.access_key:
+        elif settings.url and settings.access_key and settings.refresh_token:
             self._connect()
             
         # Case 3: Missing required settings
         else:
-            self._logger.warning("URL or access credentials not configured")
+            self._logger.warning("Registration failed: Requires URL, registration token and anon key")
 
     @property
     def settings(self) -> ConnectionSettings:
