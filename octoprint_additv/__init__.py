@@ -3,6 +3,7 @@ from .event_handler import EventHandler
 from .additv_client import AdditvClient
 from .telemetry_handler import TelemetryHandler
 from .filament_tracker import FilamentTracker
+from .job_handler import JobHandler
 
 
 class AdditivPlugin(
@@ -34,6 +35,7 @@ class AdditivPlugin(
         self.event_handler = None
         self.telemetry_handler = None
         self.filament_tracker = None
+        self.job_handler = None
       
         
 
@@ -64,6 +66,7 @@ class AdditivPlugin(
                 self.event_handler = EventHandler(self.additv_client, self._logger)
                 self.telemetry_handler = TelemetryHandler(self.additv_client, self._printer_profile_manager, self._logger)
                 self.filament_tracker = FilamentTracker(self._logger)
+                self.job_handler = JobHandler(self.additv_client)
                 self._logger.info("Additv handlers initialized")
                 
                 # Check printer state and send appropriate event
@@ -72,6 +75,9 @@ class AdditivPlugin(
                 if state_id == "OPERATIONAL":
                     self._logger.debug("Printer is operational, sending Connected event")
                     self.event_handler.handle_event("Connected", {})
+                    # Start job processing when printer is operational
+                    if self.job_handler:
+                        self.job_handler.start_job_processing()
                 else:
                     self._logger.debug(f"Printer is not operational ({state_id}), sending Disconnected event")
                     self.event_handler.handle_event("Disconnected", {})
@@ -83,6 +89,12 @@ class AdditivPlugin(
         """Handle OctoPrint events by passing them to our event handler"""
         if self.event_handler:
             self.event_handler.handle_event(event, payload)
+            
+        # Start job processing when printer becomes operational
+        if event == "PrinterStateChanged":
+            if payload.get("state_id") == "OPERATIONAL":
+                if self.job_handler:
+                    self.job_handler.start_job_processing()
 
     def get_settings_defaults(self):
         """Define default settings for the plugin."""

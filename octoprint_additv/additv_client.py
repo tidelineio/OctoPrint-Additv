@@ -299,6 +299,62 @@ class AdditvClient:
         else:
             self._logger.warning("Skipping telemetry event: client not running or not connected")
 
+    def call_edge_function(self, function_name: str, params: Dict = None) -> Any:
+        """Call an edge function and return the result"""
+        if not self._running or not self._supabase:
+            self._logger.warning(f"Skipping edge function {function_name}: client not running or not connected")
+            return None
+            
+        try:
+            # Use the stored access token for authorization
+            if not self.settings.access_key:
+                self._logger.error("No access token available for edge function call")
+                return None
+                
+            # Call the edge function with authorization
+            response = self._supabase.functions.invoke(
+                function_name=function_name,
+                invoke_options={
+                    "body": params or {},
+                    "headers": {
+                        "Authorization": f"Bearer {self.settings.access_key}",
+                        "Content-Type": "application/json"
+                    }
+                }
+            )
+            
+            # Check for 204 No Content response
+            if hasattr(response, 'status_code') and response.status_code == 204:
+                self._logger.debug(f"Edge function returned 204 No Content")
+                return None
+                
+            # Log the raw response for debugging
+            self._logger.debug(f"Edge function raw response: {response}")
+            
+            # Parse response data
+            try:
+                if hasattr(response, 'json'):
+                    data = response.json()
+                elif hasattr(response, 'data'):
+                    data = response.data
+                else:
+                    data = response
+                    
+                # Check for error response
+                if isinstance(data, dict) and 'error' in data:
+                    self._logger.error(f"Edge function returned error: {data['error']}")
+                    if 'details' in data:
+                        self._logger.debug(f"Error details: {data['details']}")
+                    return None
+                    
+                return data
+            except Exception as e:
+                self._logger.error(f"Failed to parse edge function response: {str(e)}")
+                return None
+        except Exception as e:
+            self._logger.error(f"Error calling edge function {function_name}: {str(e)}")
+            return None
+
     def stop(self):
         """Stop the queue processor"""
         self._logger.info("Stopping AdditvClient")
