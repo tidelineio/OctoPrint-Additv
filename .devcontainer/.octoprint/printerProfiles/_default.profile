@@ -23,7 +23,7 @@ extruder:
 heatedBed: true
 heatedChamber: false
 id: _default
-model: VSC
+model: Virtual
 name: Default
 volume:
   custom_box: false

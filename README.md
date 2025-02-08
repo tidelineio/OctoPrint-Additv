@@ -95,3 +95,11 @@ The plugin includes temperature-based telemetry filtering to optimize data trans
 
 - High Resolution Mode (above 30°C): Full telemetry data is sent for accurate monitoring during printer operation
 - Low Resolution Mode (below 30°C): Data is only sent when temperature changes exceed 0.3°C, reducing data transmission during idle periods
+
+### Telemetry Type Settings
+
+The plugin supports different telemetry formats:
+
+- `telemetry_type`: Type of telemetry format to process (default: "PrusaMK3")
+  - "PrusaMK3": For Prusa MK3 printers, processes both temperature and power/fan data across multiple lines
+  - "Virtual": For virtual printers with simplified single-line format (e.g., "T:21.30/ 0.00 B:21.30/ 0.00 @:64")

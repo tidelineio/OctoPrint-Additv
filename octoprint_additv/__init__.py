@@ -35,9 +35,13 @@ class AdditivPlugin(
         self.telemetry_handler = None
         self.filament_tracker = None
       
+        
+
     def on_startup(self, host, port):
         """Initialize the Additv client and event handler."""
         # First try to create and initialize the Additv client
+
+
         try:
             printer_name = self._settings.global_get(["appearance", "name"])
             if not printer_name:
@@ -58,7 +62,7 @@ class AdditivPlugin(
         if self.additv_client and self.additv_client._supabase:
             try:
                 self.event_handler = EventHandler(self.additv_client, self._logger)
-                self.telemetry_handler = TelemetryHandler(self.additv_client, self._logger)
+                self.telemetry_handler = TelemetryHandler(self.additv_client, self._printer_profile_manager, self._logger)
                 self.filament_tracker = FilamentTracker(self._logger)
                 self._logger.info("Additv handlers initialized")
                 
