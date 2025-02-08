@@ -146,6 +146,8 @@ class TelemetryHandler:
                 self._process_prusa_mk3_data()
         elif first_char == 'E' and "E0:" in line and "RPM" in line:
             self._pending_power = line
+            if self._pending_temp:
+                self._process_prusa_mk3_data()
 
     def _process_prusa_mk3_data(self) -> None:
         """Process collected temperature and power data for Prusa MK3"""
