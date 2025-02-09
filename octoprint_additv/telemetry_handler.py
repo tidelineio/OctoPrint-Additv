@@ -34,6 +34,9 @@ class TelemetryHandler:
         tool_temp = telemetry.get('tool0_temp')
         bed_temp = telemetry.get('bed_temp')
         
+        if self.telemetry_type == "Virtual": # Always send virtual printer telemetry
+            return True
+
         # Always send if any temperature is above 30°C
         if (tool_temp and tool_temp > 30.0) or (bed_temp and bed_temp > 30.0):
             return True
