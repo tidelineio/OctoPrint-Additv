@@ -65,6 +65,15 @@ class JobHandler:
         self._logger = additv_plugin._logger
         self._file_storage = additv_plugin._file_manager._storage_managers['local']
         self._upload_folder = "Additv"
+        self._printer = additv_plugin._printer
+
+    def report_job_progress(self, progress):
+        """
+        Report print job progress to Additv
+        Args:
+            progress (int): Progress percentage (0-100)
+        """
+        self._logger.info(f"Print progress: {progress}%")
 
     def get_next_job(self) -> Optional[Job]:
         """
@@ -156,7 +165,7 @@ class JobHandler:
 
         try:
             # Select the file for printing
-            self._octoprint.printer.select_file(job.octoprint_filename, False, printAfterSelect=True)
+            self._printer.select_file(job.octoprint_filename, False, printAfterSelect=True)
 
             self._logger.info("Started print for job %s with file %s", job.job_number, job.octoprint_filename)
             return True

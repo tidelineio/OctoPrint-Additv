@@ -11,6 +11,7 @@ class AdditivPlugin(
     octoprint.plugin.StartupPlugin,
     octoprint.plugin.EventHandlerPlugin,
     octoprint.plugin.SettingsPlugin,
+    octoprint.plugin.ProgressPlugin,
 ):
 
     def __init__(self):
@@ -108,6 +109,11 @@ class AdditivPlugin(
         if self.additv_client:
             self.additv_client.stop()
             self._logger.info("Stopped Additv client queue processor")
+
+    def on_print_progress(self, storage, path, progress):
+        """Handle print progress updates"""
+        if self.job_handler:
+            self.job_handler.report_job_progress(progress)
 
 
 __plugin_name__ = "Additv Plugin"
