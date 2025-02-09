@@ -140,6 +140,30 @@ class JobHandler:
             self._logger.error(f"Error downloading gcode file: {str(e)}")
             return False
 
+    def _start_print(self, job: Job) -> bool:
+        """
+        Loads and starts printing the specified job's gcode file.
+        
+        Args:
+            job (Job): The job containing the file to print
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        if not job.octoprint_filename:
+            self._logger.error("No OctoPrint filename set for job %s", job.job_number)
+            return False
+
+        try:
+            # Select the file for printing
+            self._octoprint.printer.select_file(job.octoprint_filename, False, printAfterSelect=True)
+
+            self._logger.info("Started print for job %s with file %s", job.job_number, job.octoprint_filename)
+            return True
+        except Exception as e:
+            self._logger.error("Error starting print for job %s: %s", job.job_number, str(e))
+            return False
+
     def start_next_job(self):
         """
         Gets a job from Additv, loads and starts it
