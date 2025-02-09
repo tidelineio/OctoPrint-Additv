@@ -1,7 +1,7 @@
 from io import BytesIO
-import requests
 from dataclasses import dataclass
 from typing import Optional
+import requests
 
 @dataclass
 class Job:
