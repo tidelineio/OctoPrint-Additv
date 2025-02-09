@@ -4,6 +4,7 @@ from .additv_client import AdditvClient
 from .telemetry_handler import TelemetryHandler
 from .filament_tracker import FilamentTracker
 from .job_handler import JobHandler
+from .printer_client import PrinterClient
 
 
 class AdditivPlugin(
@@ -11,6 +12,18 @@ class AdditivPlugin(
     octoprint.plugin.EventHandlerPlugin,
     octoprint.plugin.SettingsPlugin,
 ):
+
+    def __init__(self):
+        super().__init__()
+        self.additv_client = None
+        self.event_handler = None
+        self.telemetry_handler = None
+        self.filament_tracker = None
+        self.job_handler = None
+        self.printer_comms = None
+      
+        
+
     def gcode_received_hook(self, comm, line, *args, **kwargs):
         """Process received GCODE lines through all handlers"""
         try:
@@ -28,22 +41,10 @@ class AdditivPlugin(
             pass
         
         return line
-            
-    def __init__(self):
-        super().__init__()
-        self.additv_client = None
-        self.event_handler = None
-        self.telemetry_handler = None
-        self.filament_tracker = None
-        self.job_handler = None
-      
-        
 
     def on_startup(self, host, port):
         """Initialize the Additv client and event handler."""
         # First try to create and initialize the Additv client
-
-
         try:
             printer_name = self._settings.global_get(["appearance", "name"])
             if not printer_name:
@@ -67,11 +68,8 @@ class AdditivPlugin(
                 self.telemetry_handler = TelemetryHandler(self.additv_client, self._printer_profile_manager, self._logger)
                 self.filament_tracker = FilamentTracker(self._logger)
                 self.job_handler = JobHandler(self)
+                self.printer_comms = PrinterClient(self._printer, printer_name, self.job_handler, self._logger)
                 self._logger.info("Additv handlers initialized")
-                
-                if self.job_handler:
-                    self.job_handler.start_job_processing()
-
                 self._check_printer_startup_state()
 
             except Exception as e:
@@ -99,7 +97,7 @@ class AdditivPlugin(
         if event == "PrinterStateChanged":
             if payload.get("state_id") == "OPERATIONAL":
                 if self.job_handler:
-                    self.job_handler.start_job_processing()
+                    self.job_handler.start_next_job()
 
     def get_settings_defaults(self):
         """Define default settings for the plugin."""
@@ -121,7 +119,13 @@ def __plugin_load__():
     global __plugin_implementation__
     plugin = __plugin_implementation__
     
+    def action_hook(comm, line, action, *args, **kwargs):
+        if plugin.printer_comms is not None:
+            return plugin.printer_comms.action_handler(comm, line, action, *args, **kwargs)
+        return None
+    
     global __plugin_hooks__
     __plugin_hooks__ = {
         "octoprint.comm.protocol.gcode.received": plugin.gcode_received_hook,
+        "octoprint.comm.protocol.action": action_hook
     }

@@ -9,6 +9,7 @@ class Job:
     gcode_id: int
     gcode_url: str
     gcode_filename: str
+    octoprint_filename: str = None
 
     @classmethod
     def from_dict(cls, data: dict, logger) -> Optional['Job']:
@@ -102,6 +103,7 @@ class JobHandler:
             # Extract base filename without extension
             base_filename = job.gcode_filename.split('.')[0]
             filename = f"{self._upload_folder}/{base_filename}_id-{job.gcode_id}.gcode"
+            job.octoprint_filename = filename
             
             # Check if file exists
             if self._file_storage.file_exists(filename):
@@ -138,14 +140,14 @@ class JobHandler:
             self._logger.error(f"Error downloading gcode file: {str(e)}")
             return False
 
-    def start_job_processing(self):
+    def start_next_job(self):
         """
-        Initiates the job processing loop.
-        Currently just retrieves the next job as a test.
+        Gets a job from Additv, loads and starts it
         """
         job = self.get_next_job()
         if job:
             self._logger.info("Retrieved job: %s", job)
             self._download_gcode(job)
+            self._start_print(job)
         else:
             self._logger.info("No job available")
