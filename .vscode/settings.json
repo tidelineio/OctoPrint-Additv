@@ -1,0 +1,10 @@
+{
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": true,
+    "python.linting.lintOnSave": true,
+    "python.linting.pylintArgs": [
+        "--max-line-length=120",
+        "--disable=C0111",  // Disable missing docstring warning
+        "--disable=C0103"   // Disable invalid name warning
+    ]
+}

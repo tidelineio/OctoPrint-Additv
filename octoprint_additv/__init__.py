@@ -3,6 +3,7 @@ from .event_handler import EventHandler
 from .additv_client import AdditvClient
 from .telemetry_handler import TelemetryHandler
 from .filament_tracker import FilamentTracker
+from .job_handler import JobHandler
 
 
 class AdditivPlugin(
@@ -34,6 +35,7 @@ class AdditivPlugin(
         self.event_handler = None
         self.telemetry_handler = None
         self.filament_tracker = None
+        self.job_handler = None
       
         
 
@@ -59,30 +61,45 @@ class AdditivPlugin(
             return
 
         # If client initialized successfully, set up handlers
-        if self.additv_client and self.additv_client._supabase:
+        if self.additv_client:
             try:
                 self.event_handler = EventHandler(self.additv_client, self._logger)
                 self.telemetry_handler = TelemetryHandler(self.additv_client, self._printer_profile_manager, self._logger)
                 self.filament_tracker = FilamentTracker(self._logger)
+                self.job_handler = JobHandler(self)
                 self._logger.info("Additv handlers initialized")
                 
-                # Check printer state and send appropriate event
-                state_id = self._printer.get_state_id()
-                self._logger.debug(f"Checking printer state during startup: {state_id}")
-                if state_id == "OPERATIONAL":
-                    self._logger.debug("Printer is operational, sending Connected event")
-                    self.event_handler.handle_event("Connected", {})
-                else:
-                    self._logger.debug(f"Printer is not operational ({state_id}), sending Disconnected event")
-                    self.event_handler.handle_event("Disconnected", {})
-                    
+                if self.job_handler:
+                    self.job_handler.start_job_processing()
+
+                self._check_printer_startup_state()
+
             except Exception as e:
                 self._logger.error(f"Failed to initialize handlers: {str(e)}")
+
+    def _check_printer_startup_state(self):
+        """Check printer state during startup and send appropriate connection event."""
+        state_id = self._printer.get_state_id()
+        self._logger.debug(f"Checking printer state during startup: {state_id}")
+        
+        if state_id == "OPERATIONAL":
+            self._logger.debug("Printer is operational, sending Connected event")
+            self.event_handler.handle_event("Connected", {})
+        else:
+            self._logger.debug(f"Printer is not operational ({state_id}), sending Disconnected event")
+            self.event_handler.handle_event("Disconnected", {})
+                    
 
     def on_event(self, event, payload):
         """Handle OctoPrint events by passing them to our event handler"""
         if self.event_handler:
             self.event_handler.handle_event(event, payload)
+            
+        # Start job processing when printer becomes operational
+        if event == "PrinterStateChanged":
+            if payload.get("state_id") == "OPERATIONAL":
+                if self.job_handler:
+                    self.job_handler.start_job_processing()
 
     def get_settings_defaults(self):
         """Define default settings for the plugin."""
