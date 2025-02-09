@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import time
 import os
 import yaml
+import json
 import random
 from supabase import create_client
 from queue import Queue, Empty
@@ -339,6 +340,17 @@ class AdditvClient:
                     data = response.data
                 else:
                     data = response
+                
+                # Handle bytes response
+                if isinstance(data, bytes):
+                    try:
+                        data = json.loads(data.decode('utf-8'))
+                    except json.JSONDecodeError as e:
+                        self._logger.error(f"Failed to decode JSON response: {str(e)}")
+                        return None
+                    except UnicodeDecodeError as e:
+                        self._logger.error(f"Failed to decode bytes response: {str(e)}")
+                        return None
                     
                 # Check for error response
                 if isinstance(data, dict) and 'error' in data:

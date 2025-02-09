@@ -22,16 +22,25 @@ class JobHandler:
             if not result:
                 self._logger.debug("No jobs available")
                 return None
-                
-            # Validate expected job data
-            if not isinstance(result, dict) or not all(key in result for key in ['job_number', 'gcode_id', 'gcode_url']):
-                self._logger.error("Invalid job data format in response")
+            
+            # Validate required job data fields
+            required_fields = {'job_number', 'gcode_id', 'gcode_url'}
+            
+            if not isinstance(result, dict):
+                self._logger.error("Invalid job data format: expected dict, got %s", type(result).__name__)
                 return None
                 
-            self._logger.info(f"Retrieved job {result['job_number']} with gcode {result['gcode_id']}")
+            missing_fields = required_fields - set(result.keys())
+            if missing_fields:
+                self._logger.error("Missing required job data fields: %s", ', '.join(missing_fields))
+                return None
+                
+            # Log all received fields for debugging
+            self._logger.debug("Received job data fields: %s", ', '.join(result.keys()))
+            self._logger.info("Retrieved job %s with gcode %s", result['job_number'], result['gcode_id'])
             return result
         except Exception as e:
-            self._logger.error(f"Error getting next job: {str(e)}")
+            self._logger.error("Error getting next job: %s", str(e))
             return None
 
     def start_job_processing(self):
@@ -41,6 +50,6 @@ class JobHandler:
         """
         job = self.get_next_job()
         if job:
-            self._logger.info(f"Retrieved job: {job}")
+            self._logger.info("Retrieved job: %s", job)
         else:
             self._logger.info("No job available")
