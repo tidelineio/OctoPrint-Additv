@@ -43,7 +43,6 @@ class AdditivPlugin(
 
     def on_startup(self, host, port):
         """Initialize the Additv client and event handler."""
-        # First try to create and initialize the Additv client
         try:
             printer_name = self._settings.global_get(["appearance", "name"])
             if not printer_name:
@@ -56,23 +55,33 @@ class AdditivPlugin(
                 logger=self._logger,
                 plugin_data_folder=plugin_data_folder
             )
+            
+            # Ensure the client is fully initialized
+            if not self.additv_client.is_initialized():
+                self._logger.error("Additv client failed to initialize completely")
+                self.additv_client = None
+                return
+            
+            # If client initialized successfully, set up handlers
+            self.event_handler = EventHandler(self.additv_client, self._logger)
+            self.telemetry_handler = TelemetryHandler(self.additv_client, self._printer_profile_manager, self._logger)
+            self.filament_tracker = FilamentTracker(self._logger)
+            self.job_handler = JobHandler(self)
+            self.printer_comms = PrinterClient(self._printer, printer_name, self.job_handler, self._logger)
+            self._logger.info("Additv handlers initialized")
+            self._check_printer_startup_state()
         except Exception as e:
-            self._logger.error(f"Failed to initialize Additv client: {str(e)}")
-            return
-
-        # If client initialized successfully, set up handlers
-        if self.additv_client:
-            try:
-                self.event_handler = EventHandler(self.additv_client, self._logger)
-                self.telemetry_handler = TelemetryHandler(self.additv_client, self._printer_profile_manager, self._logger)
-                self.filament_tracker = FilamentTracker(self._logger)
-                self.job_handler = JobHandler(self)
-                self.printer_comms = PrinterClient(self._printer, printer_name, self.job_handler, self._logger)
-                self._logger.info("Additv handlers initialized")
-                self._check_printer_startup_state()
-
-            except Exception as e:
-                self._logger.error(f"Failed to initialize handlers: {str(e)}")
+            self._logger.error(f"Error during startup: {str(e)}")
+            # Reset all handlers and client if initialization fails
+            self.additv_client = None
+            self.event_handler = None
+            self.telemetry_handler = None
+            self.filament_tracker = None
+            self.job_handler = None
+            self.printer_comms = None
+        
+        if not self.additv_client or not self.additv_client.is_initialized():
+            self._logger.warning("Additv client not initialized. Handlers will not be set up.")
 
     def _check_printer_startup_state(self):
         """Check printer state during startup and send appropriate connection event."""

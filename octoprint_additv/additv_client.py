@@ -168,6 +168,7 @@ class AdditvClient:
         self._lock = Lock()
         self._worker_thread = Thread(target=self._process_queue, daemon=True)
         self._worker_thread.start()
+        self._initialized = False
         
         # Check for environment variables
         env_url = os.environ.get("ADDITV_URL")
@@ -251,8 +252,11 @@ class AdditvClient:
                 raise Exception(f"User ID mismatch. Expected: {self.settings.service_user}, Got: {currentUser.user.id}")
                 
             self._logger.info("Successfully established connection to Additv backend")
+            self._initialized = True
+            
         except Exception as e:
             self._logger.error(f"Connection failed: {str(e)}")
+            self._initialized = False
 
     def _process_queue(self):
         """Process operations from the queue"""
@@ -385,3 +389,7 @@ class AdditvClient:
             self._logger.debug("Waiting for worker thread to complete...")
             self._worker_thread.join(timeout=5.0)
             self._logger.info("AdditvClient stopped")
+    
+    def is_initialized(self) -> bool:
+        """Check if the client is fully initialized"""
+        return self._initialized
