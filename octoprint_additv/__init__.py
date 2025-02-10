@@ -22,8 +22,6 @@ class AdditivPlugin(
         self.filament_tracker = None
         self.job_handler = None
         self.printer_comms = None
-      
-        
 
     def gcode_received_hook(self, comm, line, *args, **kwargs):
         """Process received GCODE lines through all handlers"""
@@ -88,17 +86,10 @@ class AdditivPlugin(
             self._logger.debug(f"Printer is not operational ({state_id}), sending Disconnected event")
             self.event_handler.handle_event("Disconnected", {})
                     
-
     def on_event(self, event, payload):
         """Handle OctoPrint events by passing them to our event handler"""
         if self.event_handler:
             self.event_handler.handle_event(event, payload)
-            
-        # Start job processing when printer becomes operational
-        if event == "PrinterStateChanged":
-            if payload.get("state_id") == "OPERATIONAL":
-                if self.job_handler:
-                    self.job_handler.start_next_job()
 
     def get_settings_defaults(self):
         """Define default settings for the plugin."""
@@ -113,7 +104,13 @@ class AdditivPlugin(
     def on_print_progress(self, storage, path, progress):
         """Handle print progress updates"""
         if self.job_handler:
-            self.job_handler.report_job_progress(progress)
+            self.job_handler.report_job_progress(progress=progress)
+
+    def action_hook(self, comm, line, action, *args, **kwargs):
+        """Handle action hooks"""
+        if self.printer_comms is not None:
+            return self.printer_comms.action_handler(comm, line, action, *args, **kwargs)
+        return None
 
 
 __plugin_name__ = "Additv Plugin"
@@ -125,13 +122,8 @@ def __plugin_load__():
     global __plugin_implementation__
     plugin = __plugin_implementation__
     
-    def action_hook(comm, line, action, *args, **kwargs):
-        if plugin.printer_comms is not None:
-            return plugin.printer_comms.action_handler(comm, line, action, *args, **kwargs)
-        return None
-    
     global __plugin_hooks__
     __plugin_hooks__ = {
         "octoprint.comm.protocol.gcode.received": plugin.gcode_received_hook,
-        "octoprint.comm.protocol.action": action_hook
+        "octoprint.comm.protocol.action": plugin.action_hook
     }

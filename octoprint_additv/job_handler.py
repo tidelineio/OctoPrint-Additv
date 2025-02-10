@@ -5,7 +5,7 @@ import requests
 
 @dataclass
 class Job:
-    job_number: int
+    job_id: int
     gcode_id: int
     gcode_url: str
     gcode_filename: str
@@ -29,7 +29,7 @@ class Job:
             return None
             
         # Validate required fields
-        required_fields = {'job_number', 'gcode_id', 'gcode_url', 'gcode_filename'}
+        required_fields = {'job_id', 'gcode_id', 'gcode_url', 'gcode_filename'}
         missing_fields = required_fields - set(data.keys())
         if missing_fields:
             logger.error("Missing required job data fields: %s", ', '.join(missing_fields))
@@ -37,11 +37,11 @@ class Job:
             
         # Log all received fields for debugging
         logger.debug("Received job data fields: %s", ', '.join(data.keys()))
-        logger.info("Retrieved job %s with gcode %s", data['job_number'], data['gcode_id'])
+        logger.info("Retrieved job %s with gcode %s", data['job_id'], data['gcode_id'])
         
         try:
             return cls(
-                job_number=data['job_number'],
+                job_id=data['job_id'],
                 gcode_id=data['gcode_id'],
                 gcode_url=data['gcode_url'],
                 gcode_filename=data['gcode_filename']
@@ -66,16 +66,26 @@ class JobHandler:
         self._file_storage = additv_plugin._file_manager._storage_managers['local']
         self._upload_folder = "Additv"
         self._printer = additv_plugin._printer
+        self._job = None
 
-    def report_job_progress(self, progress):
+    def report_job_progress(self, progress: float):
         """
         Report print job progress to Additv
         Args:
-            progress (int): Progress percentage (0-100)
+            progress (float): Progress percentage (0-100)
         """
-        self._logger.info(f"Print progress: {progress}%")
+        if self._job is None:
+            self._logger.warning("Cannot report job progress: No active job")
+            return
 
-    def get_next_job(self) -> Optional[Job]:
+        self._logger.info(f"Print progress: {progress}% for job {self._job.job_id}")
+        
+        try:
+            self._additv_client.publish_job_progress(self._job.job_id, progress)
+        except Exception as e:
+            self._logger.error(f"Error publishing job progress: {str(e)}")
+
+    def _get_next_job(self) -> Optional[Job]:
         """
         Retrieves the next available job from the edge function.
         
@@ -160,25 +170,26 @@ class JobHandler:
             bool: True if successful, False otherwise
         """
         if not job.octoprint_filename:
-            self._logger.error("No OctoPrint filename set for job %s", job.job_number)
+            self._logger.error("No OctoPrint filename set for job %s", job.job_id)
             return False
 
         try:
             # Select the file for printing
             self._printer.select_file(job.octoprint_filename, False, printAfterSelect=True)
 
-            self._logger.info("Started print for job %s with file %s", job.job_number, job.octoprint_filename)
+            self._logger.info("Started print for job %s with file %s", job.job_id, job.octoprint_filename)
             return True
         except Exception as e:
-            self._logger.error("Error starting print for job %s: %s", job.job_number, str(e))
+            self._logger.error("Error starting print for job %s: %s", job.job_id, str(e))
             return False
 
     def start_next_job(self):
         """
         Gets a job from Additv, loads and starts it
         """
-        job = self.get_next_job()
+        job = self._get_next_job()
         if job:
+            self._job = job
             self._logger.info("Retrieved job: %s", job)
             self._download_gcode(job)
             self._start_print(job)

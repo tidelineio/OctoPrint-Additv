@@ -1,15 +1,13 @@
-from typing import Dict, Any, Optional, Callable, List
+from typing import Dict, Any, Optional, Callable
 from dataclasses import dataclass
 from pathlib import Path
 from datetime import datetime, timezone
-import time
 import os
-import yaml
 import json
-import random
-from supabase import create_client
-from queue import Queue, Empty
 from threading import Thread, Lock
+from queue import Queue, Empty
+import yaml
+from supabase import create_client
 
 @dataclass
 class ConnectionSettings:
@@ -46,7 +44,7 @@ class SettingsManager:
         if self._settings_file.exists():
             self._logger.debug(f"Loading settings from {self._settings_file}")
             try:
-                with open(self._settings_file, 'r') as f:
+                with open(self._settings_file, 'r', encoding='utf-8') as f:
                     data = yaml.safe_load(f)
                     if data:
                         self._settings = ConnectionSettings(**data)
@@ -74,7 +72,7 @@ class SettingsManager:
                 'refresh_token': self._settings.refresh_token,
                 'anon_key': self._settings.anon_key
             }
-            with open(self._settings_file, 'w') as f:
+            with open(self._settings_file, 'w', encoding='utf-8') as f:
                 yaml.safe_dump(settings_dict, f)
             self._logger.debug("Settings saved successfully")
         except Exception as e:
@@ -147,9 +145,7 @@ class QueuedOperation:
     retries: int = 0
 
 class AdditvClient:
-    """Client for handling asynchronous communication with Additv backend services"""
-    """Client for handling asynchronous communication with Additv backend services"""
-    
+    """Client for handling asynchronous communication with Additv backend services"""    
     def __init__(self, printer_name: str, logger=None, 
                  on_token_refresh: Optional[Callable[[str], None]] = None, 
                  plugin_data_folder: Optional[str] = None,
@@ -299,6 +295,19 @@ class AdditvClient:
             )
         else:
             self._logger.warning("Skipping telemetry event: client not running or not connected")
+
+    def publish_job_progress(self, job_id: int, progress: float) -> None:
+        """Publish job progress to the queue for processing"""
+        if self._running and self._supabase:
+            self._logger.debug(f"Queueing job progress update: job_id={job_id}, progress={progress}")
+            self._queue.put(
+                lambda: self._supabase.table("jobs")
+                    .update({"progress": progress})
+                    .eq("id", job_id)
+                    .execute()
+            )
+        else:
+            self._logger.warning("Skipping job progress update: client not running or not connected")
 
     def call_edge_function(self, function_name: str, params: Dict = None) -> Any:
         """Call an edge function and return the result"""
