@@ -33,10 +33,6 @@ class TelemetryHandler:
         """
         tool_temp = telemetry.get('tool0_temp')
         bed_temp = telemetry.get('bed_temp')
-
-        # Always send virtual printer telemetry
-        if self.telemetry_type == "Virtual":
-            return True
         
         if self.telemetry_type == "Virtual": # Always send virtual printer telemetry
             return True
