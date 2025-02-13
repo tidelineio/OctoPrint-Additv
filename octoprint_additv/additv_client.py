@@ -282,7 +282,7 @@ class AdditvClient:
             self._logger.debug(f"Queueing printer event: {event_type} with data: {data}")
             self._queue.put(
                 lambda: self._supabase.table("printer_events")
-                    .insert({"event": event_type, "data": data, "source_timestamp": datetime.now(timezone.utc).isoformat()})
+                    .insert({"printer_id": self.settings.printer_id, "event": event_type, "data": data, "source_timestamp": datetime.now(timezone.utc).isoformat()})
                     .execute()
             )
         else:
@@ -294,7 +294,7 @@ class AdditvClient:
             self._logger.debug(f"Queueing telemetry event with data: {telemetry}")
             self._queue.put(
                 lambda: self._supabase.table("printer_telemetry")
-                    .insert({"data": telemetry, "source_timestamp": datetime.now(timezone.utc).isoformat()})
+                    .insert({"printer_id": self.settings.printer_id, "data": telemetry, "source_timestamp": datetime.now(timezone.utc).isoformat()})
                     .execute()
             )
         else:
