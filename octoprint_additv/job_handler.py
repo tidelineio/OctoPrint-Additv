@@ -4,6 +4,7 @@ from typing import Optional
 from decimal import Decimal
 import requests
 import zipfile
+import hashlib
 from .filament_tracker import FilamentTracker
 
 @dataclass
@@ -12,6 +13,7 @@ class Job:
     gcode_id: int
     gcode_url_compressed: str
     gcode_filename: str
+    file_hash: str
     octoprint_filename: str = None
 
     @classmethod
@@ -32,7 +34,7 @@ class Job:
             return None
             
         # Validate required fields
-        required_fields = {'job_id', 'gcode_id', 'gcode_url_compressed', 'gcode_filename'}
+        required_fields = {'job_id', 'gcode_id', 'gcode_url_compressed', 'gcode_filename', 'file_hash'}
         missing_fields = required_fields - set(data.keys())
         if missing_fields:
             logger.error("Missing required job data fields: %s", ', '.join(missing_fields))
@@ -47,7 +49,8 @@ class Job:
                 job_id=data['job_id'],
                 gcode_id=data['gcode_id'],
                 gcode_url_compressed=data['gcode_url_compressed'],
-                gcode_filename=data['gcode_filename']
+                gcode_filename=data['gcode_filename'],
+                file_hash=data['file_hash']
             )
         except Exception as e:
             logger.error("Error creating Job object: %s", str(e))
@@ -166,6 +169,21 @@ class JobHandler:
                 self._logger.info(f"Extracting {gcode_filename} from zip file")
                 gcode_content = zip_file.read(gcode_filename)
                 self._logger.info(f"Successfully extracted gcode file from zip")
+                
+                # Verify file hash
+                file_hash = hashlib.sha256(gcode_content).hexdigest()
+                if file_hash != job.file_hash:
+                    error_msg = f"Hash mismatch for gcode file. Expected: {job.file_hash}, Got: {file_hash}"
+                    self._logger.error(error_msg)
+                    # Trigger PrintCancelled event with hash verification failure details
+                    self._octoprint.event_handler.handle_event("Error", {
+                        "error": "hash_verification_failed",
+                        "message": error_msg,
+                        "job_id": job.job_id,
+                        "gcode_id": job.gcode_id
+                    })
+                    return False
+                self._logger.info("File hash verification successful")
             
             # Create a new BytesIO object with the extracted gcode content
             gcode_obj = BytesIO(gcode_content)
@@ -187,6 +205,14 @@ class JobHandler:
             
         except Exception as e:
             self._logger.error(f"Error downloading gcode file: {str(e)}")
+            
+            self._octoprint.event_handler.handle_event("Error", {
+            "error": "download_gcode_failed",
+            "message": error_msg,
+            "job_id": job.job_id,
+            "gcode_id": job.gcode_id
+                    })
+            
             return False
 
     def _start_print(self, job: Job) -> bool:
