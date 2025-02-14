@@ -19,12 +19,20 @@ class FilamentTracker:
     def reset(self):
         """Reset all tracking variables"""
         self.total_extrusion = Decimal('0.0')    # Total accumulated extrusion for current job
+        self.previous_line = None                # Store the last processed line
 
     def process_line(self, line):
         """
         Process a single line of gcode and update job extrusion tracking.
         Returns the current total extrusion amount in mm for this job.
         """
+        # Skip if this is exactly the same as the previous line (likely a resend)
+        if line == self.previous_line:
+            return None
+            
+        # Store current line for future comparison
+        self.previous_line = line
+
         # Quick early exits for non-relevant lines
         if not line or line.startswith(';') or line.startswith('#'):
             return None
