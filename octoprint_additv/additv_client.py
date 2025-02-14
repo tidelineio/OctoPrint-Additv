@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any, Optional, Callable, List
 from dataclasses import dataclass
 from pathlib import Path
 from datetime import datetime, timezone
@@ -288,17 +288,29 @@ class AdditvClient:
         else:
             self._logger.warning(f"Skipping event {event_type}: client not running or not connected")
 
-    def publish_telemetry_event(self, telemetry: Dict) -> None:
-        """Publish a single telemetry event to the queue for processing"""
+    def publish_telemetry_batch(self, telemetry_batch: List[Dict]) -> None:
+        """Publish a batch of telemetry events to the queue for processing"""
+        if not telemetry_batch:
+            return
+            
         if self._running and self._supabase:
-            self._logger.debug(f"Queueing telemetry event with data: {telemetry}")
+            batch_data = [
+                {
+                    "printer_id": self.settings.printer_id,
+                    "data": telemetry["data"],
+                    "source_timestamp": telemetry["source_timestamp"]
+                }
+                for telemetry in telemetry_batch
+            ]
+            
+            self._logger.debug(f"Queueing batch of {len(telemetry_batch)} telemetry events")
             self._queue.put(
                 lambda: self._supabase.table("printer_telemetry")
-                    .insert({"printer_id": self.settings.printer_id, "data": telemetry, "source_timestamp": datetime.now(timezone.utc).isoformat()})
+                    .insert(batch_data)
                     .execute()
             )
         else:
-            self._logger.warning("Skipping telemetry event: client not running or not connected")
+            self._logger.warning("Skipping telemetry batch: client not running or not connected")
 
     def publish_job_progress(self, job_id: int, progress: float, odometer_readings: list) -> None:
         """

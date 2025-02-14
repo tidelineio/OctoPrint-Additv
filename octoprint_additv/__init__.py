@@ -108,6 +108,8 @@ class AdditivPlugin(
 
     def on_shutdown(self):
         """Clean up resources on shutdown"""
+        if self.telemetry_handler:
+            self.telemetry_handler.on_shutdown()
         if self.additv_client:
             self.additv_client.stop()
             self._logger.info("Stopped Additv client queue processor")

@@ -1,6 +1,7 @@
 import time
 from typing import Optional, Dict, List, Union
 import logging
+from datetime import datetime, timezone
 
 class TelemetryHandler:
     def __init__(self, additv_client, printer_profile_manager, logger: Optional[logging.Logger] = None):
@@ -15,6 +16,10 @@ class TelemetryHandler:
         # Get printer model from profile
         printer_profile = printer_profile_manager.get_current_or_default()
         self.telemetry_type = printer_profile.get("model", "Unknown")
+        
+        # Initialize telemetry buffer
+        self._telemetry_buffer = []
+        self.BUFFER_SIZE = 10
 
 
     def process_gcode_received_hook(self, line: str) -> None:
@@ -126,9 +131,7 @@ class TelemetryHandler:
                     telemetry["tool0_power"] = self._scale_power(tool0_power)
 
             if self._should_send_telemetry(telemetry):
-                self.additv_client.publish_telemetry_event(telemetry)
-                self._logger.debug(f"Published virtual telemetry event: {telemetry}")
-                
+                self._buffer_telemetry(telemetry)
                 # Update last sent temperatures
                 self._last_tool_temp = telemetry.get('tool0_temp')
                 self._last_bed_temp = telemetry.get('bed_temp')
@@ -248,9 +251,7 @@ class TelemetryHandler:
                     telemetry["tool0_part_fan_rpm"] = round(part_fan, 2)
 
             if self._should_send_telemetry(telemetry):
-                self.additv_client.publish_telemetry_event(telemetry)
-                self._logger.debug(f"Published Prusa MK3 telemetry event: {telemetry}")
-                
+                self._buffer_telemetry(telemetry)
                 # Update last sent temperatures
                 self._last_tool_temp = telemetry.get('tool0_temp')
                 self._last_bed_temp = telemetry.get('bed_temp')
@@ -260,3 +261,33 @@ class TelemetryHandler:
         finally:
             self._pending_temp = None
             self._pending_power = None
+            
+    def _buffer_telemetry(self, telemetry: Dict) -> None:
+        """Add telemetry to buffer and send if buffer is full"""
+        timestamped_telemetry = {
+            "data": telemetry,
+            "source_timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        self._telemetry_buffer.append(timestamped_telemetry)
+        self._logger.debug(f"Added telemetry to buffer. Buffer size: {len(self._telemetry_buffer)}")
+        
+        if len(self._telemetry_buffer) >= self.BUFFER_SIZE:
+            self._send_buffered_telemetry()
+    
+    def _send_buffered_telemetry(self) -> None:
+        """Send buffered telemetry and clear buffer"""
+        if not self._telemetry_buffer:
+            return
+            
+        try:
+            self.additv_client.publish_telemetry_batch(self._telemetry_buffer)
+            self._logger.debug(f"Published batch of {len(self._telemetry_buffer)} telemetry events")
+        except Exception as e:
+            self._logger.error(f"Failed to send telemetry batch: {e}")
+        finally:
+            self._telemetry_buffer = []
+            
+    def on_shutdown(self) -> None:
+        """Flush any remaining telemetry on shutdown"""
+        if self._telemetry_buffer:
+            self._send_buffered_telemetry()
