@@ -1,7 +1,9 @@
 from io import BytesIO
 from dataclasses import dataclass
 from typing import Optional
+from decimal import Decimal
 import requests
+from .filament_tracker import FilamentTracker
 
 @dataclass
 class Job:
@@ -67,12 +69,17 @@ class JobHandler:
         self._upload_folder = "Additv"
         self._printer = additv_plugin._printer
         self._job = None
+        self._filament_tracker = FilamentTracker()
+        self._last_reported_e = Decimal('0.0')
 
     def report_job_progress(self, progress: float):
         """
-        Report print job progress to Additv
+        Report print job progress and job-specific filament usage to Additv
         Args:
             progress (float): Progress percentage (0-100)
+        
+        The odometer readings track filament usage for this specific job,
+        resetting at the start of each new job.
         """
         if self._job is None:
             self._logger.warning("Cannot report job progress: No active job")
@@ -81,9 +88,20 @@ class JobHandler:
         self._logger.info(f"Print progress: {progress}% for job {self._job.job_id}")
         
         try:
-            self._additv_client.publish_job_progress(self._job.job_id, progress)
+            current_e = self._filament_tracker.total_extrusion
+            odometer_readings = [{
+                "e_last_reported": float(self._last_reported_e),
+                "e_current": float(current_e)
+            }]
+            
+            self._additv_client.publish_job_progress(
+                self._job.job_id,
+                progress,
+                odometer_readings
+            )
+            self._last_reported_e = current_e
         except Exception as e:
-            self._logger.error(f"Error publishing job progress: {str(e)}")
+            self._logger.error(f"Error publishing progress: {str(e)}")
 
     def _get_next_job(self) -> Optional[Job]:
         """
@@ -190,8 +208,23 @@ class JobHandler:
         job = self._get_next_job()
         if job:
             self._job = job
+            self._filament_tracker.reset()  # Reset extrusion tracking for new job
+            self._last_reported_e = Decimal('0.0')
             self._logger.info("Retrieved job: %s", job)
             self._download_gcode(job)
             self._start_print(job)
         else:
             self._logger.info("No job available")
+
+    def process_gcode_line(self, line: str):
+        """
+        Process a line of gcode to track extrusion
+        Args:
+            line (str): The gcode line to process
+        Returns:
+            float or None: Current total extrusion if line contained extrusion, None otherwise
+        """
+        if self._job is None:
+            return None
+            
+        return self._filament_tracker.process_line(line)
