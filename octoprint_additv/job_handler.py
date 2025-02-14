@@ -3,13 +3,14 @@ from dataclasses import dataclass
 from typing import Optional
 from decimal import Decimal
 import requests
+import zipfile
 from .filament_tracker import FilamentTracker
 
 @dataclass
 class Job:
     job_id: int
     gcode_id: int
-    gcode_url: str
+    gcode_url_compressed: str
     gcode_filename: str
     octoprint_filename: str = None
 
@@ -31,7 +32,7 @@ class Job:
             return None
             
         # Validate required fields
-        required_fields = {'job_id', 'gcode_id', 'gcode_url', 'gcode_filename'}
+        required_fields = {'job_id', 'gcode_id', 'gcode_url_compressed', 'gcode_filename'}
         missing_fields = required_fields - set(data.keys())
         if missing_fields:
             logger.error("Missing required job data fields: %s", ', '.join(missing_fields))
@@ -45,7 +46,7 @@ class Job:
             return cls(
                 job_id=data['job_id'],
                 gcode_id=data['gcode_id'],
-                gcode_url=data['gcode_url'],
+                gcode_url_compressed=data['gcode_url_compressed'],
                 gcode_filename=data['gcode_filename']
             )
         except Exception as e:
@@ -148,18 +149,29 @@ class JobHandler:
                 return True
                 
             # Download the file from the URL
-            self._logger.info(f"Downloading gcode from {job.gcode_url}")
-            response = requests.get(job.gcode_url, stream=True, timeout=30)
+            self._logger.info(f"Downloading gcode from {job.gcode_url_compressed}")
+            response = requests.get(job.gcode_url_compressed, stream=True, timeout=30)
             response.raise_for_status()
             # Stream the downloaded content into a BytesIO buffer
-            file_obj = BytesIO()
+            zip_obj = BytesIO()
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
-                    file_obj.write(chunk)
-            file_obj.seek(0)
+                    zip_obj.write(chunk)
+            zip_obj.seek(0)
+            
+            # Extract the gcode file from the zip
+            with zipfile.ZipFile(zip_obj) as zip_file:
+                # Get the first file in the zip (assuming it's the gcode file)
+                gcode_filename = zip_file.namelist()[0]
+                self._logger.info(f"Extracting {gcode_filename} from zip file")
+                gcode_content = zip_file.read(gcode_filename)
+                self._logger.info(f"Successfully extracted gcode file from zip")
+            
+            # Create a new BytesIO object with the extracted gcode content
+            gcode_obj = BytesIO(gcode_content)
             
             # Wrap the BytesIO object with our custom wrapper that provides the save method
-            wrapped_file_obj = BytesIOWrapper(file_obj)
+            wrapped_file_obj = BytesIOWrapper(gcode_obj)
             
             # Save the downloaded file using LocalFileStorage
             self._logger.info(f"Saving downloaded gcode as {filename}")
