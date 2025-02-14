@@ -2,7 +2,6 @@ import octoprint.plugin
 from .event_handler import EventHandler
 from .additv_client import AdditvClient
 from .telemetry_handler import TelemetryHandler
-from .filament_tracker import FilamentTracker
 from .job_handler import JobHandler
 from .printer_client import PrinterClient
 
@@ -19,22 +18,27 @@ class AdditivPlugin(
         self.additv_client = None
         self.event_handler = None
         self.telemetry_handler = None
-        self.filament_tracker = None
         self.job_handler = None
         self.printer_comms = None
 
-    def gcode_received_hook(self, comm, line, *args, **kwargs):
-        """Process received GCODE lines through all handlers"""
+    def gcode_sent_hook(self, comm, phase, cmd, cmd_type, gcode, subcode=None, tags=None, *args, **kwargs):
+        """Process sent GCODE lines through job handler for filament tracking"""
         try:
-            if self.filament_tracker:
-                self.filament_tracker.process_gcode_received_hook(line)
-            
+            if self.job_handler:
+                self.job_handler.process_gcode_line(cmd)
+        except Exception:
+            # Logging is too expensive on gcode hooks
+            pass
+        return cmd
+
+    def gcode_received_hook(self, comm, line, *args, **kwargs):
+        """Process received GCODE lines through event and telemetry handlers"""
+        try:
             if self.event_handler:
                 self.event_handler.process_gcode_received_hook(line)
             
             if self.telemetry_handler:
                 self.telemetry_handler.process_gcode_received_hook(line)
-            
         except Exception:
             # Logging is too expensive on gcode_received_hook
             pass
@@ -65,7 +69,6 @@ class AdditivPlugin(
             # If client initialized successfully, set up handlers
             self.event_handler = EventHandler(self.additv_client, self._logger)
             self.telemetry_handler = TelemetryHandler(self.additv_client, self._printer_profile_manager, self._logger)
-            self.filament_tracker = FilamentTracker(self._logger)
             self.job_handler = JobHandler(self)
             self.printer_comms = PrinterClient(self._printer, printer_name, self.job_handler, self._logger)
             self._logger.info("Additv handlers initialized")
@@ -76,7 +79,6 @@ class AdditivPlugin(
             self.additv_client = None
             self.event_handler = None
             self.telemetry_handler = None
-            self.filament_tracker = None
             self.job_handler = None
             self.printer_comms = None
         
@@ -134,5 +136,6 @@ def __plugin_load__():
     global __plugin_hooks__
     __plugin_hooks__ = {
         "octoprint.comm.protocol.gcode.received": plugin.gcode_received_hook,
+        "octoprint.comm.protocol.gcode.sent": plugin.gcode_sent_hook,
         "octoprint.comm.protocol.action": plugin.action_hook
     }

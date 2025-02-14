@@ -300,16 +300,23 @@ class AdditvClient:
         else:
             self._logger.warning("Skipping telemetry event: client not running or not connected")
 
-    def publish_job_progress(self, job_id: int, progress: float) -> None:
-        """Publish job progress to the queue for processing"""
+    def publish_job_progress(self, job_id: int, progress: float, odometer_readings: list) -> None:
+        """
+        Publish job progress and odometer readings to the edge function
+        
+        Args:
+            job_id: The ID of the job
+            progress: Progress percentage (0-100)
+            odometer_readings: List of odometer readings with e_last_reported and e_current values
+        """
         if self._running and self._supabase:
-            self._logger.debug(f"Queueing job progress update: job_id={job_id}, progress={progress}")
-            self._queue.put(
-                lambda: self._supabase.table("jobs")
-                    .update({"progress": progress})
-                    .eq("id", job_id)
-                    .execute()
-            )
+            params = {
+                "job_id": job_id,
+                "progress": progress,
+                "odometer_readings": odometer_readings
+            }
+            self._logger.debug(f"Calling post-job-progress with params: {params}")
+            return self.call_edge_function("post-job-progress", params)
         else:
             self._logger.warning("Skipping job progress update: client not running or not connected")
 
