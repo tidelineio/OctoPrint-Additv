@@ -5,6 +5,7 @@ from decimal import Decimal
 import requests
 import zipfile
 import hashlib
+from octoprint.util import RepeatedTimer
 from .filament_tracker import FilamentTracker
 
 @dataclass
@@ -14,6 +15,7 @@ class Job:
     gcode_url_compressed: str
     gcode_filename: str
     file_hash: str
+    estimated_print_time_seconds: int = 0
     octoprint_filename: str = None
 
     @classmethod
@@ -50,7 +52,8 @@ class Job:
                 gcode_id=data['gcode_id'],
                 gcode_url_compressed=data['gcode_url_compressed'],
                 gcode_filename=data['gcode_filename'],
-                file_hash=data['file_hash']
+                file_hash=data['file_hash'],
+                estimated_print_time_seconds=data['estimated_print_time_seconds']
             )
         except Exception as e:
             logger.error("Error creating Job object: %s", str(e))
@@ -72,9 +75,12 @@ class JobHandler:
         self._file_storage = additv_plugin._file_manager._storage_managers['local']
         self._upload_folder = "Additv"
         self._printer = additv_plugin._printer
+        self._printer_commands = additv_plugin.printer_commands
         self._job = None
         self._filament_tracker = FilamentTracker()
         self._last_reported_e = Decimal('0.0')
+        self.preheat_timer = None
+        self.delay_time_remaining = 0
 
     def report_job_progress(self, progress: float):
         """
@@ -215,6 +221,47 @@ class JobHandler:
             
             return False
 
+    def _handle_preheat_countdown(self):
+        """Handle the preheat countdown and temperature monitoring"""
+        current_temps = self._printer.get_current_temperatures()
+        nozzle_temp = float(current_temps.get('tool0', {}).get('actual', 0))
+        bed_temp = float(current_temps.get('bed', {}).get('actual', 0))
+
+        if nozzle_temp > 160:
+            if self.delay_time_remaining > 0:
+                if bed_temp > 80:
+                    self._printer_commands.send_lcd_message(f"Heat soak - {self.delay_time_remaining} sec")
+                    self.delay_time_remaining -= 1
+                else:
+                    self._printer.set_temperature("bed", 85)
+            else:
+                if self.preheat_timer:
+                    self.preheat_timer.cancel()
+                    self.preheat_timer = None
+                # Now safe to start the print
+                self._printer.select_file(self._job.octoprint_filename, sd=False, printAfterSelect=True)
+                self._logger.info(f"Started print for job {self._job.job_id} with file {self._job.octoprint_filename}")
+        else:
+            self._logger.debug("Waiting for nozzle to reach temperature...")
+
+    def _start_preheat_sequence(self, estimated_print_time: int) -> None:
+        """Start the preheat sequence if print time exceeds threshold"""
+        self.delay_time_remaining = 600 if estimated_print_time > 10800 else 0  # 10 min delay for prints > 3 hours
+        
+        # Send preheat event to Additv
+        self._octoprint.event_handler.handle_event("Preheat", {
+            "job_id": self._job.job_id,
+            "gcode_id": self._job.gcode_id,
+        })
+
+        self._printer.set_temperature("tool0", 170)
+        self._printer_commands.send_lcd_message("Clean nozzle")
+        
+        if self.delay_time_remaining > 0:
+            self.preheat_timer = RepeatedTimer(1, self._handle_preheat_countdown)
+            self.preheat_timer.start()
+            self._logger.info(f"Started preheat sequence with {self.delay_time_remaining} second delay")
+
     def _start_print(self, job: Job) -> bool:
         """
         Loads and starts printing the specified job's gcode file.
@@ -230,10 +277,9 @@ class JobHandler:
             return False
 
         try:
-            # Select the file for printing
-            self._printer.select_file(job.octoprint_filename, False, printAfterSelect=True)
-
-            self._logger.info("Started print for job %s with file %s", job.job_id, job.octoprint_filename)
+            # Start preheat sequence based on estimated print time
+            estimated_time = job.estimated_print_time_seconds
+            self._start_preheat_sequence(estimated_time)
             return True
         except Exception as e:
             self._logger.error("Error starting print for job %s: %s", job.job_id, str(e))

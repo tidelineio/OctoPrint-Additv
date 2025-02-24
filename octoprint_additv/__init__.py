@@ -3,7 +3,8 @@ from .event_handler import EventHandler
 from .additv_client import AdditvClient
 from .telemetry_handler import TelemetryHandler
 from .job_handler import JobHandler
-from .printer_client import PrinterClient
+from .printer_commands import PrinterCommands
+from .printer_actions import PrinterActionHandler
 
 
 class AdditivPlugin(
@@ -19,7 +20,8 @@ class AdditivPlugin(
         self.event_handler = None
         self.telemetry_handler = None
         self.job_handler = None
-        self.printer_comms = None
+        self.printer_commands = None
+        self.printer_actions = None
 
     def gcode_sent_hook(self, comm, phase, cmd, cmd_type, gcode, subcode=None, tags=None, *args, **kwargs):
         """Process sent GCODE lines through job handler for filament tracking"""
@@ -66,11 +68,28 @@ class AdditivPlugin(
                 self.additv_client = None
                 return
             
-            # If client initialized successfully, set up handlers
-            self.event_handler = EventHandler(self.additv_client, self._logger)
-            self.telemetry_handler = TelemetryHandler(self.additv_client, self._printer_profile_manager, self._logger)
+            # Initialize printer communication components first
+            self.printer_commands = PrinterCommands(self._printer, printer_name, self._logger)
+            self.printer_actions = PrinterActionHandler(self._logger)
+            
+            # Initialize handlers
             self.job_handler = JobHandler(self)
-            self.printer_comms = PrinterClient(self._printer, printer_name, self.job_handler, self._logger)
+            self.event_handler = EventHandler(self.additv_client, self.job_handler, self._logger)
+            self.telemetry_handler = TelemetryHandler(self.additv_client, self._printer_profile_manager, self._logger)
+            
+            # Wire up action handlers
+            def on_ready():
+                self.printer_commands.send_ready_state(1)
+                self.job_handler.start_next_job()
+                
+            def on_not_ready():
+                self.printer_commands.send_ready_state(0)
+                
+            self.printer_actions.register_handlers(
+                on_ready=on_ready,
+                on_not_ready=on_not_ready
+            )
+            
             self._logger.info("Additv handlers initialized")
             self._check_printer_startup_state()
         except Exception as e:
@@ -80,7 +99,8 @@ class AdditivPlugin(
             self.event_handler = None
             self.telemetry_handler = None
             self.job_handler = None
-            self.printer_comms = None
+            self.printer_commands = None
+            self.printer_actions = None
         
         if not self.additv_client or not self.additv_client.is_initialized():
             self._logger.warning("Additv client not initialized. Handlers will not be set up.")
@@ -106,8 +126,15 @@ class AdditivPlugin(
         """Define default settings for the plugin."""
         return dict()
 
+    def on_after_startup(self):
+        """Start background tasks after plugin startup"""
+        if self.printer_commands:
+            self.printer_commands.start_ping_loop()
+
     def on_shutdown(self):
         """Clean up resources on shutdown"""
+        if self.printer_commands:
+            self.printer_commands.stop_ping_loop()
         if self.telemetry_handler:
             self.telemetry_handler.on_shutdown()
         if self.additv_client:
@@ -121,8 +148,8 @@ class AdditivPlugin(
 
     def action_hook(self, comm, line, action, *args, **kwargs):
         """Handle action hooks"""
-        if self.printer_comms is not None:
-            return self.printer_comms.action_handler(comm, line, action, *args, **kwargs)
+        if self.printer_actions is not None:
+            return self.printer_actions.handle_action(comm, line, action, *args, **kwargs)
         return None
 
 

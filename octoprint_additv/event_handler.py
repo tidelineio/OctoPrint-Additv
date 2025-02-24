@@ -1,9 +1,11 @@
 import logging
 from typing import Optional, Dict, Any
+from dataclasses import asdict
 
 class EventHandler:
     # Events that will be handled and stored
     EVENTS_TO_HANDLE = {
+        "Preheat",
         "Startup",
         "Shutdown",
         "Connected",
@@ -28,15 +30,17 @@ class EventHandler:
         "PartFanError",
     }
 
-    def __init__(self, additv_client, logger=None):
+    def __init__(self, additv_client, job_handler, logger=None):
         """
         Initialize the event handler
         
         Args:
             additv_client: The Additv client instance
+            job_handler: The job handler instance
             logger: Optional logger instance
         """
         self._additv = additv_client
+        self._job_handler = job_handler
         self._logger = logger or logging.getLogger(__name__)
 
     def handle_event(self, event: str, payload: Dict[str, Any]) -> None:
@@ -59,6 +63,16 @@ class EventHandler:
                 self._logger.debug("insert_event - No valid Additv connection")
                 return
             
+            # Get current job data if available
+            if self._job_handler._job:
+                data = {
+                    **data,
+                    "job": {
+                        "job_id": self._job_handler._job.job_id,
+                        "gcode_id": self._job_handler._job.gcode_id
+                    }
+                }
+                        
             self._additv.publish_printer_event(event_type, data)
 
         except Exception as e:
