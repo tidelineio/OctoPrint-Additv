@@ -115,6 +115,13 @@ class AdditivPlugin(
         """Handle OctoPrint events by passing them to our event handler"""
         if self.event_handler:
             self.event_handler.handle_event(event, payload)
+            
+        # Handle printer connection events for ping loop
+        if self.printer_commands:
+            if event in ("PrinterReset", "Connected"):
+                self.printer_commands.start_ping_loop()
+            elif event == "Disconnected":
+                self.printer_commands.stop_ping_loop()
 
     def get_settings_defaults(self):
         """Define default settings for the plugin."""
