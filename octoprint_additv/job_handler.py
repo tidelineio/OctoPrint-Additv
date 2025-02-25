@@ -128,6 +128,7 @@ class JobHandler:
             result = self._additv_client.call_edge_function("get-next-job")
             if not result:
                 self._logger.debug("No jobs available")
+                self._printer_commands.send_lcd_message("No suitable jobs")
                 return None
             
             return Job.from_dict(result, self._logger)
@@ -299,6 +300,13 @@ class JobHandler:
             self._start_print(job)
         else:
             self._logger.info("No job available")
+
+    def cancel_preheat(self):
+        """Cancel any active preheat timer and reset delay time"""
+        if self.preheat_timer:
+            self.preheat_timer.cancel()
+            self.preheat_timer = None
+            self.delay_time_remaining = 0
 
     def process_gcode_line(self, line: str):
         """

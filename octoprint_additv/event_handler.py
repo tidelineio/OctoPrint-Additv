@@ -51,6 +51,12 @@ class EventHandler:
                 # as this event duplicates some other events and we only care about the state of the USB connection
                 # Logging all PrinterStateChanged events for now
                 self._logger.debug(f"Recording event {event}")
+                
+                # Disable our preheater if the printer is reset so it doesnt keep trying to start the job
+                if event in ("PrinterReset", "FirmwareData", "Connected", "Disconnected"):
+                    # Cancel any preheat jobs if the printer is reset
+                    self._job_handler.cancel_preheat()
+                
                 self.insert_event(event, payload)
 
         except Exception as e:
