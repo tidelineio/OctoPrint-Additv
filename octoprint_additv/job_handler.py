@@ -227,10 +227,11 @@ class JobHandler:
         current_temps = self._printer.get_current_temperatures()
         nozzle_temp = float(current_temps.get('tool0', {}).get('actual', 0))
         bed_temp = float(current_temps.get('bed', {}).get('actual', 0))
+        bed_target_temp = float(current_temps.get('bed', {}).get('target', 0))
 
         if nozzle_temp > 160:
             if self.delay_time_remaining > 0:
-                if bed_temp > 80:
+                if bed_temp > 80 or bed_target_temp == 85:
                     self._printer_commands.send_lcd_message(f"Heat soak - {self.delay_time_remaining} sec")
                     self.delay_time_remaining -= 1
                 else:
