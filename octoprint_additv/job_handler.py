@@ -290,16 +290,20 @@ class JobHandler:
         """
         Gets a job from Additv, loads and starts it
         """
-        job = self._get_next_job()
-        if job:
-            self._job = job
-            self._filament_tracker.reset()  # Reset extrusion tracking for new job
-            self._last_reported_e = Decimal('0.0')
-            self._logger.info("Retrieved job: %s", job)
-            self._download_gcode(job)
-            self._start_print(job)
+        if not self.preheat_timer:
+            self._printer_commands.send_lcd_message("Fetching next Job...")
+            job = self._get_next_job()
+            if job:
+                self._job = job
+                self._filament_tracker.reset()  # Reset extrusion tracking for new job
+                self._last_reported_e = Decimal('0.0')
+                self._logger.info("Retrieved job: %s", job)
+                self._download_gcode(job)
+                self._start_print(job)
+            else:
+                self._logger.info("No job available")
         else:
-            self._logger.info("No job available")
+            self._logger.error("Preheat already in progress, cannot start new job")
 
     def cancel_preheat(self):
         """Cancel any active preheat timer and reset delay time"""
