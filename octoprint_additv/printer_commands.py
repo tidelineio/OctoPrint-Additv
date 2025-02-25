@@ -13,8 +13,6 @@ class PrinterCommands:
     
     def send_ready_state(self, state):
         """Acknowledge Ready/Not Ready state to printer"""
-        if state == 1:
-            self.send_lcd_message("Fetching next Job...")
         self._printer.commands(f"M72 S{state}")
     
     def send_ping(self):
