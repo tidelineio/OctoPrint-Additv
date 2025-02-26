@@ -263,6 +263,9 @@ class JobHandler:
             self.preheat_timer = RepeatedTimer(1, self._handle_preheat_countdown)
             self.preheat_timer.start()
             self._logger.info(f"Started preheat sequence with {self.delay_time_remaining} second delay")
+        else:    # No delay, start print immediately 
+            self._printer.select_file(self._job.octoprint_filename, sd=False, printAfterSelect=True)
+            self._logger.info(f"Started print for job {self._job.job_id} with file {self._job.octoprint_filename}")
 
     def _start_print(self, job: Job) -> bool:
         """
