@@ -124,8 +124,10 @@ class JobHandler:
             if not self._additv_client:
                 self._logger.error("Additv client not initialized")
                 return None
-                
+            
+            self._printer_commands.send_lcd_message("Fetching next Job...")
             result = self._additv_client.call_edge_function("get-next-job")
+
             if not result:
                 self._logger.debug("No jobs available")
                 self._printer_commands.send_lcd_message("No suitable jobs")
@@ -135,6 +137,7 @@ class JobHandler:
             
         except Exception as e:
             self._logger.error("Error getting next job: %s", str(e))
+            self._printer_commands.send_lcd_message("Error fetching job")
             return None
 
     def _download_gcode(self, job: Job) -> bool:
@@ -265,6 +268,7 @@ class JobHandler:
             self._logger.info(f"Started preheat sequence with {self.delay_time_remaining} second delay")
         else:    # No delay, start print immediately 
             self._printer.select_file(self._job.octoprint_filename, sd=False, printAfterSelect=True)
+            self._printer_commands.send_lcd_message(f"Job #{self._job.job_id}")
             self._logger.info(f"Started print for job {self._job.job_id} with file {self._job.octoprint_filename}")
 
     def _start_print(self, job: Job) -> bool:
@@ -295,7 +299,6 @@ class JobHandler:
         Gets a job from Additv, loads and starts it
         """
         if not self.preheat_timer:
-            self._printer_commands.send_lcd_message("Fetching next Job...")
             job = self._get_next_job()
             if job:
                 self._job = job
