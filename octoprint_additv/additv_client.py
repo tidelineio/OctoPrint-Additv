@@ -258,6 +258,30 @@ class AdditvClient:
             self._logger.error(f"Connection failed: {str(e)}")
             self._initialized = False
 
+    def _refresh_session(self) -> bool:
+        """Explicitly refresh the Supabase session"""
+        try:
+            if not self._supabase:
+                return False
+                
+            self._logger.debug("Attempting to refresh Supabase session")
+            session = self._supabase.auth.refresh_session()
+            if session and session.access_token:
+                # Update and persist both tokens
+                self._settings_manager.update_settings(
+                    access_key=session.access_token,
+                    refresh_token=session.refresh_token
+                )
+                self._logger.debug("Successfully refreshed and saved Supabase session")
+                # Call the token refresh callback if configured
+                if self._on_token_refresh:
+                    self._on_token_refresh(session.access_token)
+                return True
+            return False
+        except Exception as e:
+            self._logger.error(f"Failed to refresh session: {str(e)}")
+            return False
+
     def _process_queue(self):
         """Process operations from the queue"""
         self._logger.debug("Starting queue processor")
@@ -269,7 +293,21 @@ class AdditvClient:
                     operation()  # Execute the queued operation
                     self._logger.debug("Operation completed successfully")
                 except Exception as e:
-                    self._logger.error(f"Operation failed: {str(e)}", exc_info=True)
+                    error_str = str(e)
+                    self._logger.error(f"Operation failed: {error_str}", exc_info=True)
+                    
+                    #Check for JWT expiration
+                    if 'JWT expired' in error_str:
+                        self._logger.info("Detected JWT expiration, attempting to refresh session")
+                        if self._refresh_session():
+                            # Retry the operation after refreshing the session
+                            try:
+                                self._logger.debug("Retrying operation after session refresh")
+                                operation()  # Retry the operation
+                                self._logger.debug("Retry successful")
+                            except Exception as retry_e:
+                                self._logger.error(f"Retry failed after session refresh: {str(retry_e)}")
+                    
                 self._queue.task_done()
             except Empty:
                 continue
