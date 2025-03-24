@@ -103,3 +103,15 @@ The plugin supports different telemetry formats:
 - `telemetry_type`: Type of telemetry format to process (default: "PrusaMK3")
   - "PrusaMK3": For Prusa MK3 printers, processes both temperature and power/fan data across multiple lines
   - "Virtual": For virtual printers with simplified single-line format (e.g., "T:21.30/ 0.00 B:21.30/ 0.00 @:64")
+
+### Error Handling
+
+The plugin includes enhanced error handling for edge function calls:
+
+- All edge function calls return both the result data and an error message (if any)
+- Specific error messages are displayed on the printer's LCD for common issues:
+  - Authentication failures: "Error: Auth failed"
+  - Connection issues: "Error: Client offline"
+  - API errors: "Error: API issue"
+- Detailed error information is logged to assist with troubleshooting
+- Job progress reporting includes error handling to ensure reliable telemetry data transmission

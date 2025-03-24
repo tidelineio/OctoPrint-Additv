@@ -350,7 +350,7 @@ class AdditvClient:
         else:
             self._logger.warning("Skipping telemetry batch: client not running or not connected")
 
-    def publish_job_progress(self, job_id: int, progress: float, odometer_readings: list) -> None:
+    def publish_job_progress(self, job_id: int, progress: float, odometer_readings: list) -> tuple:
         """
         Publish job progress and odometer readings to the edge function
         
@@ -358,6 +358,11 @@ class AdditvClient:
             job_id: The ID of the job
             progress: Progress percentage (0-100)
             odometer_readings: List of odometer readings with e_last_reported and e_current values
+            
+        Returns:
+            tuple: (result, error_message) where:
+                - result: The function result data (or None if there was an error)
+                - error_message: Error message string (or None if successful)
         """
         if self._running and self._supabase:
             params = {
@@ -368,19 +373,30 @@ class AdditvClient:
             self._logger.debug(f"Calling post-job-progress with params: {params}")
             return self.call_edge_function("post-job-progress", params)
         else:
-            self._logger.warning("Skipping job progress update: client not running or not connected")
+            error_msg = "Client not running or not connected"
+            self._logger.warning(f"Skipping job progress update: {error_msg}")
+            return None, error_msg
 
-    def call_edge_function(self, function_name: str, params: Dict = None) -> Any:
-        """Call an edge function and return the result"""
+    def call_edge_function(self, function_name: str, params: Dict = None) -> tuple:
+        """
+        Call an edge function and return the result and error message
+        
+        Returns:
+            tuple: (result, error_message) where:
+                - result: The function result data (or None if there was an error)
+                - error_message: Error message string (or None if successful)
+        """
         if not self._running or not self._supabase:
-            self._logger.warning(f"Skipping edge function {function_name}: client not running or not connected")
-            return None
+            error_msg = f"Client not running or not connected"
+            self._logger.warning(f"Skipping edge function {function_name}: {error_msg}")
+            return None, error_msg
             
         try:
             # Use the stored access token for authorization
             if not self.settings.access_key:
-                self._logger.error("No access token available for edge function call")
-                return None
+                error_msg = "No access token available for edge function call"
+                self._logger.error(error_msg)
+                return None, error_msg
                 
             # Call the edge function with authorization
             response = self._supabase.functions.invoke(
@@ -397,7 +413,7 @@ class AdditvClient:
             # Check for 204 No Content response
             if hasattr(response, 'status_code') and response.status_code == 204:
                 self._logger.debug(f"Edge function returned 204 No Content")
-                return None
+                return None, None
                 
             # Log the raw response for debugging
             self._logger.debug(f"Edge function raw response: {response}")
@@ -416,26 +432,31 @@ class AdditvClient:
                     try:
                         data = json.loads(data.decode('utf-8'))
                     except json.JSONDecodeError as e:
-                        self._logger.error(f"Failed to decode JSON response: {str(e)}")
-                        return None
+                        error_msg = f"Failed to decode JSON response: {str(e)}"
+                        self._logger.error(error_msg)
+                        return None, error_msg
                     except UnicodeDecodeError as e:
-                        self._logger.error(f"Failed to decode bytes response: {str(e)}")
-                        return None
+                        error_msg = f"Failed to decode bytes response: {str(e)}"
+                        self._logger.error(error_msg)
+                        return None, error_msg
                     
                 # Check for error response
                 if isinstance(data, dict) and 'error' in data:
-                    self._logger.error(f"Edge function returned error: {data['error']}")
+                    error_msg = f"Edge function returned error: {data['error']}"
+                    self._logger.error(error_msg)
                     if 'details' in data:
                         self._logger.debug(f"Error details: {data['details']}")
-                    return None
+                    return None, error_msg
                     
-                return data
+                return data, None
             except Exception as e:
-                self._logger.error(f"Failed to parse edge function response: {str(e)}")
-                return None
+                error_msg = f"Failed to parse edge function response: {str(e)}"
+                self._logger.error(error_msg)
+                return None, error_msg
         except Exception as e:
-            self._logger.error(f"Error calling edge function {function_name}: {str(e)}")
-            return None
+            error_msg = f"Error calling edge function {function_name}: {str(e)}"
+            self._logger.error(error_msg)
+            return None, error_msg
 
     def stop(self):
         """Stop the queue processor"""

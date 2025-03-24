@@ -104,12 +104,17 @@ class JobHandler:
                 "e_current": float(current_e)
             }]
             
-            self._additv_client.publish_job_progress(
+            result, error = self._additv_client.publish_job_progress(
                 self._job.job_id,
                 progress,
                 odometer_readings
             )
-            self._last_reported_e = current_e
+            
+            if error:
+                self._logger.error(f"Error publishing job progress: {error}")
+            else:
+                self._last_reported_e = current_e
+                
         except Exception as e:
             self._logger.error(f"Error publishing progress: {str(e)}")
 
@@ -123,10 +128,26 @@ class JobHandler:
         try:
             if not self._additv_client:
                 self._logger.error("Additv client not initialized")
+                self._printer_commands.send_lcd_message("Error: Client not init")
                 return None
             
             self._printer_commands.send_lcd_message("Fetching next Job...")
-            result = self._additv_client.call_edge_function("get-next-job")
+            result, error = self._additv_client.call_edge_function("get-next-job")
+
+            if error:
+                self._logger.error(f"Error getting next job: {error}")
+                # Display a more specific error message on the LCD
+                if "No access token" in error:
+                    self._printer_commands.send_lcd_message("Error: Auth failed")
+                elif "Client not running" in error:
+                    self._printer_commands.send_lcd_message("Error: Client offline")
+                else:
+                    # Truncate error message to fit on LCD if needed
+                    lcd_msg = f"Error: {error}"
+                    if len(lcd_msg) > 25:  # Assuming LCD has ~25 char limit
+                        lcd_msg = f"Error: API issue"
+                    self._printer_commands.send_lcd_message(lcd_msg)
+                return None
 
             if not result:
                 self._logger.debug("No jobs available")
