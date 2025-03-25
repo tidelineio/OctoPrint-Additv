@@ -141,6 +141,8 @@ class JobHandler:
                     self._printer_commands.send_lcd_message("Error: Auth failed")
                 elif "Client not running" in error:
                     self._printer_commands.send_lcd_message("Error: Client offline")
+                elif "No compatible jobs available" in error:
+                    self._printer_commands.send_lcd_message("No suitable jobs")
                 else:
                     # Truncate error message to fit on LCD if needed
                     lcd_msg = f"Error: {error}"
